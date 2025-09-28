@@ -13,6 +13,50 @@ import { getColumnType } from '../utils';
 import AddColumnModal from '../components/AddColumnModal';
 
 
+const WordActionsMenu: React.FC<{
+    word: VocabRow;
+    onEdit: (word: VocabRow) => void;
+    onReset: (word: VocabRow) => void;
+    onDelete: (word: VocabRow) => void;
+}> = ({ word, onEdit, onReset, onDelete }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+     useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (ref.current && !ref.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [ref]);
+
+    return (
+        <div className="relative" ref={ref}>
+            <button 
+                onClick={() => setIsOpen(p => !p)} 
+                className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600"
+            >
+                <MoreVerticalIcon className="w-5 h-5" />
+            </button>
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-primary border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-10 text-sm">
+                    <button onClick={() => { onEdit(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-secondary dark:hover:bg-slate-700">
+                        <EditIcon className="w-4 h-4"/> Edit
+                    </button>
+                     <button onClick={() => { onReset(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-secondary dark:hover:bg-slate-700">
+                        <RefreshCwIcon className="w-4 h-4"/> Reset Stats
+                    </button>
+                     <button onClick={() => { onDelete(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-red-500 dark:text-red-400 hover:bg-secondary dark:hover:bg-slate-700">
+                        <TrashIcon className="w-4 h-4"/> Delete
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 const ColumnHeaderMenu: React.FC<{
     columnName: string;
     onRename: (col: string) => void;
@@ -454,50 +498,6 @@ const checkCondition = (row: VocabRow, layer: FilterLayer, table: VocabTable): b
     }
     return false;
 };
-
-const WordActionsMenu: React.FC<{
-    word: VocabRow;
-    onEdit: (word: VocabRow) => void;
-    onReset: (word: VocabRow) => void;
-    onDelete: (word: VocabRow) => void;
-}> = ({ word, onEdit, onReset, onDelete }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
-
-     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (ref.current && !ref.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [ref]);
-
-    return (
-        <div className="relative" ref={ref}>
-            <button 
-                onClick={() => setIsOpen(p => !p)} 
-                className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600"
-            >
-                <MoreVerticalIcon className="w-5 h-5" />
-            </button>
-            {isOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-primary border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-10 text-sm">
-                    <button onClick={() => { onEdit(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-secondary dark:hover:bg-slate-700">
-                        <EditIcon className="w-4 h-4"/> Edit
-                    </button>
-                     <button onClick={() => { onReset(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-secondary dark:hover:bg-slate-700">
-                        <RefreshCwIcon className="w-4 h-4"/> Reset Stats
-                    </button>
-                     <button onClick={() => { onDelete(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-red-500 dark:text-red-400 hover:bg-secondary dark:hover:bg-slate-700">
-                        <TrashIcon className="w-4 h-4"/> Delete
-                    </button>
-                </div>
-            )}
-        </div>
-    );
-}
 
 const WordCardModal: React.FC<{
     word: VocabRow;

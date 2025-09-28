@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { StudyConfig, VocabRow, Relation, StudyMode, VocabTable, WordProgress, WordStatus } from '../types';
@@ -265,7 +264,7 @@ const QStudyPage: React.FC = () => {
         setIsCommitting(true);
         await dataService.updateStatsOnCompletion(config, wordProgress);
         await fetchData(); // Refresh global state
-    }, [config, wordProgress, fetchData, navigate]);
+    }, [config, wordProgress, fetchData]);
 
 
     const allWordsPassed = useMemo(() => 
