@@ -1,18 +1,23 @@
-
-import React, { createContext, useState, useEffect, ReactNode, useMemo } from 'react';
-import { VocabTable, GlobalStats, Relation } from '../types';
+import React, { createContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
+import { VocabTable, GlobalStats, Relation, RewardEvent, VmindSettings, StudySession, BackupRecord, Theme, Session } from '../types';
 import { dataService } from '../services/dataService';
-
-type Theme = 'light' | 'dark';
+import { supabase } from '../services/supabaseClient';
 
 interface DataContextType {
   tables: VocabTable[];
   globalStats: GlobalStats | null;
   relations: Relation[];
+  rewardEvents: RewardEvent[];
+  studySessions: StudySession[];
+  settings: VmindSettings | null;
+  backupHistory: BackupRecord[];
+  session: Session | null;
   loading: boolean;
   fetchData: () => void;
-  theme: Theme;
   toggleTheme: () => void;
+  updateSettings: (newSettings: Partial<VmindSettings>) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 export const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -21,64 +26,126 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [tables, setTables] = useState<VocabTable[]>([]);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const [relations, setRelations] = useState<Relation[]>([]);
+  const [rewardEvents, setRewardEvents] = useState<RewardEvent[]>([]);
+  const [studySessions, setStudySessions] = useState<StudySession[]>([]);
+  const [settings, setSettings] = useState<VmindSettings | null>(null);
+  const [backupHistory, setBackupHistory] = useState<BackupRecord[]>([]);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const storedTheme = localStorage.getItem('vmind-theme');
-      if (storedTheme) {
-        return storedTheme as Theme;
-      }
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'dark'; // Default for non-browser environments
-  });
 
   useEffect(() => {
+    // Theme management
+    const theme = settings?.theme || (localStorage.getItem('vmind-theme') as Theme) || 'dark';
     const root = window.document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('vmind-theme', theme);
-  }, [theme]);
+    if (settings?.theme) {
+        localStorage.setItem('vmind-theme', settings.theme);
+    }
+  }, [settings?.theme]);
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // For now, we still fetch mock data.
+      // In a real implementation, this would check if the user is logged in
+      // and fetch data from Supabase instead.
       const tablesData = await dataService.getTables();
-      const [statsData, relationsData] = await Promise.all([
+      const [statsData, relationsData, eventsData, settingsData, sessionsData, backupData] = await Promise.all([
         dataService.getGlobalStats(),
-        dataService.getRelationsForTables(tablesData.map(t => t.id))
+        dataService.getRelationsForTables(tablesData.map(t => t.id)),
+        dataService.getRewardEvents(),
+        dataService.getSettings(),
+        dataService.getStudySessions(),
+        dataService.getBackupHistory(),
       ]);
       setTables(tablesData);
       setGlobalStats(statsData);
       setRelations(relationsData);
+      setRewardEvents(eventsData);
+      setSettings(settingsData);
+      setStudySessions(sessionsData);
+      setBackupHistory(backupData);
     } catch (error) {
       console.error("Failed to fetch data", error);
     } finally {
       setLoading(false);
     }
+  }, []);
+  
+  // Supabase Auth
+  useEffect(() => {
+    if (!supabase) return;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signInWithGoogle = async () => {
+    if (!supabase) {
+        alert("Supabase is not configured. Cannot log in.");
+        return;
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+    });
+    if (error) {
+        console.error('Error logging in with Google:', error);
+        alert('Error logging in. Check the console for details.');
+    }
   };
+
+  const signOut = async () => {
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        console.error('Error logging out:', error);
+    }
+  };
+
+
+  const updateSettings = useCallback(async (newSettings: Partial<VmindSettings>) => {
+    const result = await dataService.updateSettings(newSettings);
+    setSettings(result);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    if (settings) {
+        const newTheme = settings.theme === 'light' ? 'dark' : 'light';
+        updateSettings({ theme: newTheme });
+    }
+  }, [settings, updateSettings]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const contextValue = useMemo(() => ({
     tables,
     globalStats,
     relations,
+    rewardEvents,
+    studySessions,
+    settings,
+    backupHistory,
+    session,
     loading,
     fetchData,
-    theme,
     toggleTheme,
-  }), [tables, globalStats, relations, loading, theme]);
+    updateSettings,
+    signInWithGoogle,
+    signOut,
+  }), [tables, globalStats, relations, rewardEvents, studySessions, settings, backupHistory, session, loading, fetchData, toggleTheme, updateSettings]);
 
   return (
     <DataContext.Provider value={contextValue}>

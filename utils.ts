@@ -1,4 +1,3 @@
-
 import { ColumnDef } from './types';
 
 export const getColumnType = (columnName: string, columnDefs: ColumnDef[]): 'text' | 'image' | 'number' | 'boolean' => {

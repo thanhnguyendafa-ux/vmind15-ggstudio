@@ -1,3 +1,6 @@
+import type { Session } from '@supabase/supabase-js';
+
+export type { Session };
 
 export interface VocabRowStats {
   Passed1: number;
@@ -95,4 +98,37 @@ export interface WordProgress {
     status: WordStatus;
     newFails: number;
     newPasses: number;
+}
+
+export interface RewardEvent {
+  id: string;
+  timestamp: string;
+  type: 'session_complete' | 'session_quit' | 'milestone_unlocked';
+  description: string;
+  xpChange: number;
+}
+
+export interface AutoBackupSettings {
+  enabled: boolean;
+  interval: '30m' | '2h' | '6h' | '1d' | '2d' | '7d';
+  keep: number;
+}
+
+export type ConflictResolutionPolicy = 'merge' | 'overwrite_local' | 'overwrite_cloud';
+
+export type Theme = 'light' | 'dark';
+
+export interface VmindSettings {
+  theme: Theme;
+  quitPenaltyEnabled: boolean;
+  autoBackup: AutoBackupSettings;
+  conflictPolicy: ConflictResolutionPolicy;
+}
+
+export interface BackupRecord {
+    id: string;
+    timestamp: string;
+    type: 'auto' | 'manual';
+    format: 'json' | 'csv';
+    fileRef: string; 
 }

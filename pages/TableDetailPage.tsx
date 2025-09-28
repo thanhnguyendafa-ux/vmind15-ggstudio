@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useData } from '../hooks/useData';
 import { dataService } from '../services/dataService';
-import { PlusIcon, MoreVerticalIcon, ImportIcon, EditIcon, TrashIcon, ColumnsIcon, XIcon, SortIcon, InfoIcon, RefreshCwIcon, TagIcon, ChevronDownIcon, ChevronUpIcon, TableIcon, LayoutGridIcon, FilterIcon } from '../components/Icons';
+import { PlusIcon, MoreVerticalIcon, ImportIcon, ExportIcon, EditIcon, TrashIcon, ColumnsIcon, XIcon, SortIcon, InfoIcon, RefreshCwIcon, TagIcon, ChevronDownIcon, ChevronUpIcon, TableIcon, LayoutGridIcon, FilterIcon } from '../components/Icons';
 import { DEFAULT_COLUMNS } from '../constants';
 import AddWordModal from '../components/AddWordModal';
 import EditWordModal from '../components/EditWordModal';
@@ -41,14 +40,14 @@ const WordActionsMenu: React.FC<{
                 <MoreVerticalIcon className="w-5 h-5" />
             </button>
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-primary border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-10 text-sm">
-                    <button onClick={() => { onEdit(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-secondary dark:hover:bg-slate-700">
+                <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-10 text-sm">
+                    <button onClick={() => { onEdit(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
                         <EditIcon className="w-4 h-4"/> Edit
                     </button>
-                     <button onClick={() => { onReset(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-secondary dark:hover:bg-slate-700">
+                     <button onClick={() => { onReset(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
                         <RefreshCwIcon className="w-4 h-4"/> Reset Stats
                     </button>
-                     <button onClick={() => { onDelete(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-red-500 dark:text-red-400 hover:bg-secondary dark:hover:bg-slate-700">
+                     <button onClick={() => { onDelete(word); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-red-500 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700">
                         <TrashIcon className="w-4 h-4"/> Delete
                     </button>
                 </div>
@@ -63,12 +62,22 @@ const ColumnHeaderMenu: React.FC<{
     onDelete: (col: string) => void;
 }> = ({ columnName, onRename, onDelete }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (ref.current && !ref.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [ref]);
 
     return (
-        <div className="relative inline-block ml-2">
+        <div className="relative inline-block ml-2" ref={ref}>
             <button 
                 onClick={() => setIsOpen(!isOpen)} 
-                onBlur={() => setTimeout(() => setIsOpen(false), 150)} 
                 className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-accent"
                 aria-haspopup="true"
                 aria-expanded={isOpen}
@@ -76,11 +85,11 @@ const ColumnHeaderMenu: React.FC<{
                 <MoreVerticalIcon className="w-4 h-4" />
             </button>
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-primary border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-10">
-                    <button onClick={() => { onRename(columnName); setIsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-secondary dark:hover:bg-slate-700">
+                <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-10">
+                    <button onClick={() => { onRename(columnName); setIsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
                         Rename
                     </button>
-                    <button onClick={() => { onDelete(columnName); setIsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-red-500 dark:text-red-400 hover:bg-secondary dark:hover:bg-slate-700">
+                    <button onClick={() => { onDelete(columnName); setIsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-red-500 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700">
                         Delete
                     </button>
                 </div>
@@ -174,7 +183,7 @@ const ImportModal: React.FC<{
                             <button onClick={onClose} className="bg-primary dark:bg-slate-600 text-text-primary dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-500 transition-colors font-semibold py-2 px-4 rounded-lg">
                                 Cancel
                             </button>
-                            <button onClick={() => onConfirm(strategy)} className="bg-accent text-primary font-bold py-2 px-4 rounded-lg">
+                            <button onClick={() => onConfirm(strategy)} className="bg-accent text-white font-bold py-2 px-4 rounded-lg">
                                 Import Data
                             </button>
                         </div>
@@ -216,7 +225,7 @@ const ColumnsToggle: React.FC<{
     }, [ref]);
 
     const renderColumnCheckbox = (col: string) => (
-        <label key={col} className="flex items-center p-2 rounded-md hover:bg-slate-700 cursor-pointer">
+        <label key={col} className="flex items-center p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer text-slate-800 dark:text-slate-200">
             <input
                 type="checkbox"
                 checked={visibleColumns.has(col)}
@@ -238,14 +247,14 @@ const ColumnsToggle: React.FC<{
                 <ColumnsIcon className="w-5 h-5 mr-2" /> Columns
             </button>
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-primary border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-20">
-                    <div className="p-2 text-sm font-semibold text-text-secondary border-b border-slate-300 dark:border-slate-600">Show/Hide Columns</div>
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-20">
+                    <div className="p-2 text-sm font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-300 dark:border-slate-600">Show/Hide Columns</div>
                     <div className="max-h-80 overflow-y-auto">
-                        <div className="px-2 pt-2 pb-1 text-xs font-bold text-text-secondary uppercase tracking-wider">Custom Fields</div>
+                        <div className="px-2 pt-2 pb-1 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Custom Fields</div>
                         <div className="px-2">
                            {userColumns.map(renderColumnCheckbox)}
                         </div>
-                        <div className="mt-2 px-2 pt-2 pb-1 text-xs font-bold text-text-secondary uppercase tracking-wider border-t border-slate-300 dark:border-slate-700">Statistics</div>
+                        <div className="mt-2 px-2 pt-2 pb-1 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-t border-slate-300 dark:border-slate-700">Statistics</div>
                         <div className="px-2 pb-2">
                           {defaultColumns.map(renderColumnCheckbox)}
                         </div>
@@ -304,20 +313,20 @@ const SortToggle: React.FC<{
                 <SortIcon className="w-5 h-5 mr-2" /> Sort
             </button>
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-primary border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-20 p-3 space-y-3">
+                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-20 p-3 space-y-3">
                     {sortLayers.map((layer, index) => (
-                        <div key={index} className="flex items-center space-x-2 bg-secondary p-2 rounded-md">
+                        <div key={index} className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-700/50 p-2 rounded-md">
                             <select
                                 value={layer.column}
                                 onChange={e => handleLayerChange(index, { column: e.target.value })}
-                                className="flex-grow bg-primary dark:bg-slate-700 p-2 rounded-md text-sm border border-slate-300 dark:border-slate-600"
+                                className="flex-grow bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 p-2 rounded-md text-sm border border-slate-300 dark:border-slate-600"
                             >
                                 {allColumns.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                             <select
                                 value={layer.direction}
                                 onChange={e => handleLayerChange(index, { direction: e.target.value as SortDirection })}
-                                className="bg-primary dark:bg-slate-700 p-2 rounded-md text-sm border border-slate-300 dark:border-slate-600"
+                                className="bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 p-2 rounded-md text-sm border border-slate-300 dark:border-slate-600"
                             >
                                 <option value="asc">Asc</option>
                                 <option value="desc">Desc</option>
@@ -328,11 +337,11 @@ const SortToggle: React.FC<{
                         </div>
                     ))}
                     {sortLayers.length < 3 && (
-                        <button onClick={handleAddLayer} className="flex items-center justify-center w-full bg-secondary dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 py-2 rounded-lg text-sm">
+                        <button onClick={handleAddLayer} className="flex items-center justify-center w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 py-2 rounded-lg text-sm text-slate-800 dark:text-slate-200">
                             <PlusIcon className="w-4 h-4 mr-2" /> Add Sort Layer
                         </button>
                     )}
-                     {sortLayers.length === 0 && <p className="text-sm text-center text-text-secondary py-2">No sort criteria applied.</p>}
+                     {sortLayers.length === 0 && <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-2">No sort criteria applied.</p>}
                 </div>
             )}
         </div>
@@ -448,7 +457,7 @@ const BulkTagModal: React.FC<{
                     <button onClick={onClose} className="bg-primary dark:bg-slate-600 text-text-primary dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-500 transition-colors font-semibold py-2 px-4 rounded-lg">
                         Cancel
                     </button>
-                    <button onClick={handleConfirm} className="bg-accent text-primary font-bold py-2 px-4 rounded-lg">
+                    <button onClick={handleConfirm} className="bg-accent text-white font-bold py-2 px-4 rounded-lg">
                         Add Tags
                     </button>
                 </div>
@@ -583,6 +592,7 @@ const TableDetailPage: React.FC = () => {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [parsedData, setParsedData] = useState<ParsedData | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
 
     const [filterLayers, setFilterLayers] = useState<FilterLayer[]>([]);
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
@@ -593,66 +603,85 @@ const TableDetailPage: React.FC = () => {
     const [relationsExpanded, setRelationsExpanded] = useState(false);
     const [viewMode, setViewMode] = useState<'table' | 'gallery'>('table');
     const [selectedWordForCard, setSelectedWordForCard] = useState<VocabRow | null>(null);
+    const [userColumnOrder, setUserColumnOrder] = useState<string[]>([]);
+    const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
-     useEffect(() => {
-        if (table) {
-            try {
-                const storageKey = `vmind_view_mode_${table.id}`;
-                const savedViewMode = localStorage.getItem(storageKey);
-                if (savedViewMode === 'table' || savedViewMode === 'gallery') {
-                    setViewMode(savedViewMode as 'table' | 'gallery');
-                }
-            } catch (e) {
-                console.error("Failed to load view mode from localStorage", e);
+    // --- EFFECTS FOR LOADING AND SAVING PREFERENCES ---
+
+    useEffect(() => {
+        if (!tableId || !table) return;
+        try {
+            const savedViewMode = localStorage.getItem(`vmind_view_mode_${tableId}`);
+            if (savedViewMode === 'table' || savedViewMode === 'gallery') {
+                setViewMode(savedViewMode);
             }
+
+            const savedCols = localStorage.getItem(`vmind_visible_cols_${tableId}`);
+            if (savedCols) {
+                setVisibleColumns(new Set(JSON.parse(savedCols)));
+            } else {
+                const defaultVisible = [...table.columns.map(c => c.name), "Tags", "RankPoint", "SuccessRate", "LastPracticeDate"];
+                setVisibleColumns(new Set(defaultVisible));
+            }
+
+            const savedSorts = localStorage.getItem(`vmind_sort_layers_${tableId}`);
+            if (savedSorts) setSortLayers(JSON.parse(savedSorts));
+
+            const savedFilters = localStorage.getItem(`vmind_filter_layers_${tableId}`);
+            if (savedFilters) setFilterLayers(JSON.parse(savedFilters));
+            
+            const savedOrder = localStorage.getItem(`vmind_col_order_${tableId}`);
+            if (savedOrder) {
+                // Validate saved order against current columns to handle schema changes
+                const currentCols = new Set(table.columns.map(c => c.name));
+                const parsedOrder = JSON.parse(savedOrder);
+                const validOrder = parsedOrder.filter((c: string) => currentCols.has(c));
+                const newCols = Array.from(currentCols).filter(c => !validOrder.includes(c));
+                setUserColumnOrder([...validOrder, ...newCols]);
+            } else {
+                setUserColumnOrder(table.columns.map(c => c.name));
+            }
+
+        } catch (e) {
+            console.error("Failed to load settings from localStorage", e);
+            setUserColumnOrder(table.columns.map(c => c.name));
         }
-    }, [table]);
+    }, [tableId, table]); 
 
     useEffect(() => {
-        if (table) {
-            const storageKey = `vmind_view_mode_${table.id}`;
-            localStorage.setItem(storageKey, viewMode);
-        }
-    }, [viewMode, table]);
+        if (tableId) localStorage.setItem(`vmind_view_mode_${tableId}`, viewMode);
+    }, [viewMode, tableId]);
 
     useEffect(() => {
-        if (table) {
-            const loadSettings = () => {
-                try {
-                    const savedCols = localStorage.getItem(`vmind_visible_cols_${table.id}`);
-                    if (savedCols) {
-                        setVisibleColumns(new Set(JSON.parse(savedCols)));
-                    } else {
-                        const defaultVisible = [...table.columns.map(c => c.name), "Tags", "RankPoint", "SuccessRate", "LastPracticeDate"];
-                        setVisibleColumns(new Set(defaultVisible));
-                    }
-
-                    const savedSorts = localStorage.getItem(`vmind_sort_layers_${table.id}`);
-                    if (savedSorts) setSortLayers(JSON.parse(savedSorts));
-
-                    const savedFilters = localStorage.getItem(`vmind_filter_layers_${table.id}`);
-                    if (savedFilters) setFilterLayers(JSON.parse(savedFilters));
-                } catch (e) {
-                    console.error("Failed to load settings from localStorage", e);
-                }
-            };
-            loadSettings();
+        if (tableId && visibleColumns.size > 0) {
+            localStorage.setItem(`vmind_visible_cols_${tableId}`, JSON.stringify(Array.from(visibleColumns)));
         }
-    }, [table]);
-
-    useEffect(() => {
-        if (table && visibleColumns.size > 0) {
-            localStorage.setItem(`vmind_visible_cols_${table.id}`, JSON.stringify(Array.from(visibleColumns)));
-        }
-    }, [visibleColumns, table]);
+    }, [visibleColumns, tableId]);
     
     useEffect(() => {
-        if (table) localStorage.setItem(`vmind_sort_layers_${table.id}`, JSON.stringify(sortLayers));
-    }, [sortLayers, table]);
+        if (tableId) localStorage.setItem(`vmind_sort_layers_${tableId}`, JSON.stringify(sortLayers));
+    }, [sortLayers, tableId]);
 
     useEffect(() => {
-        if (table) localStorage.setItem(`vmind_filter_layers_${table.id}`, JSON.stringify(filterLayers));
-    }, [filterLayers, table]);
+        if (tableId) localStorage.setItem(`vmind_filter_layers_${tableId}`, JSON.stringify(filterLayers));
+    }, [filterLayers, tableId]);
+
+    useEffect(() => {
+        if (tableId && userColumnOrder.length > 0) {
+            localStorage.setItem(`vmind_col_order_${tableId}`, JSON.stringify(userColumnOrder));
+        }
+    }, [userColumnOrder, tableId]);
+    
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setIsExportMenuOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
 
     const handleToggleColumn = (column: string) => {
@@ -675,7 +704,8 @@ const TableDetailPage: React.FC = () => {
             throw new Error(`A column named "${newColumn.name}" already exists.`);
         }
         await dataService.addColumn(tableId, newColumn);
-        fetchData();
+        await fetchData();
+        setUserColumnOrder(prev => [...prev, newColumn.name]);
     };
     
     const handleRenameColumn = async (oldName: string) => {
@@ -686,7 +716,7 @@ const TableDetailPage: React.FC = () => {
 
         const trimmedNewName = newName.trim();
         
-        if (table?.columns.some(c => c.name === trimmedNewName)) {
+        if (table?.columns.some(c => c.name.toLowerCase() === trimmedNewName.toLowerCase())) {
             alert(`Error: A column named "${trimmedNewName}" already exists.`);
             return;
         }
@@ -697,7 +727,19 @@ const TableDetailPage: React.FC = () => {
         }
         
         await dataService.renameColumn(tableId, oldName, trimmedNewName);
-        fetchData();
+        
+        setVisibleColumns(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(oldName)) {
+                newSet.delete(oldName);
+                newSet.add(trimmedNewName);
+            }
+            return newSet;
+        });
+
+        setUserColumnOrder(prev => prev.map(c => c === oldName ? trimmedNewName : c));
+        
+        await fetchData();
     };
 
 
@@ -705,7 +747,13 @@ const TableDetailPage: React.FC = () => {
         if (window.confirm(`Are you sure you want to delete the column "${colName}"? This cannot be undone.`)) {
             if (tableId) {
                 await dataService.removeColumn(tableId, colName);
-                fetchData();
+                setVisibleColumns(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(colName);
+                    return newSet;
+                });
+                setUserColumnOrder(prev => prev.filter(c => c !== colName));
+                await fetchData();
             }
         }
     };
@@ -773,6 +821,89 @@ const TableDetailPage: React.FC = () => {
         setIsImportModalOpen(false);
         setParsedData(null);
         fetchData();
+    };
+    
+    const userColumns = table?.columns.map(c => c.name) || [];
+    
+    const processedRows: AugmentedVocabRow[] = useMemo(() => {
+        if (!table) return [];
+        
+        const maxInQueueInTable = table.rows.length > 0 ? Math.max(...table.rows.map(r => r.stats.InQueue)) : 0;
+            
+        let rows: AugmentedVocabRow[] = table.rows.map(row => ({
+            ...row,
+            priorityScore: dataService.calculatePriorityScore(row, maxInQueueInTable)
+        }));
+
+        if (filterLayers.length > 0) {
+            rows = rows.filter(row => filterLayers.every(layer => checkCondition(row, layer, table)));
+        }
+
+        if (sortLayers.length > 0) {
+            rows.sort((a, b) => {
+                for (const { column, direction } of sortLayers) {
+                    let valA = getRowValue(a, column, userColumns);
+                    let valB = getRowValue(b, column, userColumns);
+                    
+                    let comparison = 0;
+                    if (valA === null || valA === undefined) comparison = 1;
+                    else if (valB === null || valB === undefined) comparison = -1;
+                    else if (typeof valA === 'string' && typeof valB === 'string') {
+                        comparison = valA.localeCompare(valB, undefined, { numeric: true });
+                    } else if (typeof valA === 'number' && typeof valB === 'number') {
+                        comparison = valA - valB;
+                    } else if (typeof valA === 'boolean' && typeof valB === 'boolean') {
+                        comparison = (valA === valB) ? 0 : valA ? -1 : 1;
+                    }
+                    
+                    if (comparison !== 0) {
+                        return direction === 'asc' ? comparison : -comparison;
+                    }
+                }
+                return 0;
+            });
+        }
+        return rows;
+    }, [table, filterLayers, sortLayers, userColumns]);
+    
+    const handleExportCSV = (exportType: 'all' | 'dataOnly') => {
+        if (!table) return;
+        
+        const orderedUserColumns = userColumnOrder.filter(c => userColumns.includes(c));
+    
+        const headersForExport = exportType === 'all'
+            ? ['keyword', ...orderedUserColumns, ...DEFAULT_COLUMNS]
+            : ['keyword', ...orderedUserColumns];
+    
+        const csvRows = [headersForExport.join(',')];
+    
+        processedRows.forEach(row => {
+            const values = headersForExport.map(header => {
+                let value = getRowValue(row, header, userColumns);
+                if (value === null || value === undefined) {
+                    value = '';
+                }
+                const stringValue = String(value);
+                if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                    return `"${stringValue.replace(/"/g, '""')}"`;
+                }
+                return stringValue;
+            });
+            csvRows.push(values.join(','));
+        });
+    
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${table.name.replace(/\s+/g, '_')}_${exportType}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setIsExportMenuOpen(false);
     };
 
     const handleSaveWord = async (keyword: string, data: Record<string, string>) => {
@@ -852,6 +983,42 @@ const TableDetailPage: React.FC = () => {
             setSelectedRowIds(new Set()); // Deselect after action
         }
     };
+    
+    const handleDragStart = (e: React.DragEvent<HTMLTableCellElement>, columnName: string) => {
+        setDraggedColumn(columnName);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+    
+    const handleDragOver = (e: React.DragEvent<HTMLTableCellElement>) => {
+        e.preventDefault();
+    };
+    
+    const handleDrop = (e: React.DragEvent<HTMLTableCellElement>, targetColumnName: string) => {
+        e.preventDefault();
+        if (!draggedColumn || draggedColumn === targetColumnName) {
+            setDraggedColumn(null);
+            return;
+        }
+    
+        const currentIndex = userColumnOrder.indexOf(draggedColumn);
+        const targetIndex = userColumnOrder.indexOf(targetColumnName);
+    
+        if (currentIndex === -1 || targetIndex === -1) {
+            setDraggedColumn(null);
+            return;
+        }
+    
+        const newOrder = [...userColumnOrder];
+        const [removed] = newOrder.splice(currentIndex, 1);
+        newOrder.splice(targetIndex, 0, removed);
+        
+        setUserColumnOrder(newOrder);
+        setDraggedColumn(null);
+    };
+    
+    const handleDragEnd = () => {
+        setDraggedColumn(null);
+    };
 
 
     if (loading) return <div className="p-4 sm:p-6 text-center">Loading table...</div>;
@@ -861,53 +1028,10 @@ const TableDetailPage: React.FC = () => {
             <Link to="/tables" className="text-accent hover:underline mt-4 inline-block">Return to all tables</Link>
         </div>
     );
-
-    const processedRows: AugmentedVocabRow[] = useMemo(() => {
-        if (!table) return [];
-        
-        const maxInQueueInTable = table.rows.length > 0 ? Math.max(...table.rows.map(r => r.stats.InQueue)) : 0;
-            
-        let rows: AugmentedVocabRow[] = table.rows.map(row => ({
-            ...row,
-            priorityScore: dataService.calculatePriorityScore(row, maxInQueueInTable)
-        }));
-
-        if (filterLayers.length > 0) {
-            rows = rows.filter(row => filterLayers.every(layer => checkCondition(row, layer, table)));
-        }
-
-        if (sortLayers.length > 0) {
-            const columnNames = table.columns.map(c => c.name);
-            rows.sort((a, b) => {
-                for (const { column, direction } of sortLayers) {
-                    let valA = getRowValue(a, column, columnNames);
-                    let valB = getRowValue(b, column, columnNames);
-                    
-                    let comparison = 0;
-                    if (valA === null || valA === undefined) comparison = 1;
-                    else if (valB === null || valB === undefined) comparison = -1;
-                    else if (typeof valA === 'string' && typeof valB === 'string') {
-                        comparison = valA.localeCompare(valB, undefined, { numeric: true });
-                    } else if (typeof valA === 'number' && typeof valB === 'number') {
-                        comparison = valA - valB;
-                    } else if (typeof valA === 'boolean' && typeof valB === 'boolean') {
-                        comparison = (valA === valB) ? 0 : valA ? -1 : 1;
-                    }
-                    
-                    if (comparison !== 0) {
-                        return direction === 'asc' ? comparison : -comparison;
-                    }
-                }
-                return 0;
-            });
-        }
-        return rows;
-    }, [table, filterLayers, sortLayers]);
-
-    const userColumns = table.columns.map(c => c.name);
-    const visibleUserCols = userColumns.filter(c => visibleColumns.has(c));
+    
+    const orderedVisibleUserCols = userColumnOrder.filter(c => visibleColumns.has(c) && userColumns.includes(c));
     const visibleStatCols = DEFAULT_COLUMNS.filter(c => visibleColumns.has(c));
-    const headers = ['keyword', ...visibleUserCols, ...visibleStatCols];
+    const headers = ['keyword', ...orderedVisibleUserCols, ...visibleStatCols];
     const allSortableColumns = ['keyword', ...userColumns, ...DEFAULT_COLUMNS];
 
     return (
@@ -917,15 +1041,30 @@ const TableDetailPage: React.FC = () => {
 
             <div className="my-6 space-y-4">
                 <div className="flex items-center flex-wrap gap-2 md:gap-4">
-                     <button onClick={() => setIsAddWordModalOpen(true)} className="flex items-center bg-accent text-primary font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-700 dark:hover:bg-sky-600 transition-colors duration-200">
+                     <button onClick={() => setIsAddWordModalOpen(true)} className="flex items-center bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors duration-200">
                         <PlusIcon className="w-5 h-5 mr-2" /> Add Word
                     </button>
-                    <button onClick={() => setIsAddColumnModalOpen(true)} className="flex items-center bg-accent text-primary font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-700 dark:hover:bg-sky-600 transition-colors duration-200">
+                    <button onClick={() => setIsAddColumnModalOpen(true)} className="flex items-center bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors duration-200">
                         <PlusIcon className="w-5 h-5 mr-2" /> Add Column
                     </button>
                     <button onClick={() => fileInputRef.current?.click()} className="flex items-center bg-secondary dark:bg-slate-700 text-text-primary dark:text-slate-200 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors duration-200">
                         <ImportIcon className="w-5 h-5 mr-2" /> Import CSV
                     </button>
+                    <div className="relative" ref={exportMenuRef}>
+                        <button onClick={() => setIsExportMenuOpen(p => !p)} className="flex items-center bg-secondary dark:bg-slate-700 text-text-primary dark:text-slate-200 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors duration-200">
+                            <ExportIcon className="w-5 h-5 mr-2" /> Export CSV
+                        </button>
+                         {isExportMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-10 text-sm">
+                                <button onClick={() => handleExportCSV('all')} className="w-full text-left px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+                                    Export All Columns
+                                </button>
+                                <button onClick={() => handleExportCSV('dataOnly')} className="w-full text-left px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+                                    Export Data Columns Only
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".csv" className="hidden" />
                     <div className="flex-grow"></div>
                      <div className="flex items-center gap-1 p-1 bg-slate-200 dark:bg-slate-800 rounded-lg">
@@ -960,7 +1099,7 @@ const TableDetailPage: React.FC = () => {
                         <div className="flex items-center space-x-2">
                             <button
                                 onClick={() => setIsBulkTagModalOpen(true)}
-                                className="flex items-center bg-accent text-primary font-bold py-1 px-3 rounded-lg text-sm"
+                                className="flex items-center bg-accent text-white font-bold py-1 px-3 rounded-lg text-sm"
                             >
                                 <TagIcon className="w-4 h-4 mr-1" /> Tag
                             </button>
@@ -1028,7 +1167,7 @@ const TableDetailPage: React.FC = () => {
                     onClose={() => setSelectedWordForCard(null)}
                     onEdit={handleEditWord}
                     onDelete={handleDeleteWord}
-                    visibleUserCols={visibleUserCols}
+                    visibleUserCols={orderedVisibleUserCols}
                     visibleStatCols={visibleStatCols}
                 />
             )}
@@ -1047,10 +1186,10 @@ const TableDetailPage: React.FC = () => {
                         aria-expanded={relationsExpanded}
                         aria-controls="relations-list"
                     >
-                        <h2 className="text-2xl font-bold text-text-primary">Relations</h2>
+                        <h2 className="text-2xl font-bold text-text-primary">Relations ({tableRelations.length})</h2>
                         {relationsExpanded ? <ChevronUpIcon className="w-6 h-6 text-text-secondary" /> : <ChevronDownIcon className="w-6 h-6 text-text-secondary" />}
                     </button>
-                    <Link to={`/tables/${tableId}/relations/new`} className="flex items-center bg-accent text-primary font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-700 dark:hover:bg-sky-600 transition-colors duration-200">
+                    <Link to={`/tables/${tableId}/relations/new`} className="flex items-center bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors duration-200">
                         <PlusIcon className="w-5 h-5 mr-2" /> Create Relation
                     </Link>
                 </div>
@@ -1104,7 +1243,7 @@ const TableDetailPage: React.FC = () => {
             )}
 
             {viewMode === 'table' && (
-                <div className="overflow-auto bg-secondary rounded-lg border border-slate-300 dark:border-slate-700 max-h-[65vh]">
+                <div className="overflow-auto bg-secondary rounded-lg border border-slate-300 dark:border-slate-700 max-h-[65vh] scrollbar scrollbar-thin scrollbar-thumb-slate-500 dark:scrollbar-thumb-slate-400 scrollbar-track-slate-300 dark:scrollbar-track-slate-800">
                     <table className="w-full text-left text-sm whitespace-nowrap">
                         <thead className="bg-slate-100 dark:bg-slate-700">
                             <tr>
@@ -1117,18 +1256,32 @@ const TableDetailPage: React.FC = () => {
                                         aria-label="Select all rows"
                                     />
                                 </th>
-                                {headers.map((col) => (
-                                    <th key={col} className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10 ${col === 'keyword' ? 'left-12 sticky' : ''}`}>
+                                <th className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10 left-12`}>
+                                    <div className="flex items-center">keyword</div>
+                                </th>
+                                {orderedVisibleUserCols.map(col => (
+                                    <th 
+                                        key={col} 
+                                        draggable
+                                        onDragStart={e => handleDragStart(e, col)}
+                                        onDragOver={handleDragOver}
+                                        onDrop={e => handleDrop(e, col)}
+                                        onDragEnd={handleDragEnd}
+                                        className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10 cursor-move transition-opacity ${draggedColumn === col ? 'opacity-50' : ''}`}
+                                    >
                                         <div className="flex items-center">
                                             {col}
-                                            {userColumns.includes(col) && (
-                                                <ColumnHeaderMenu 
-                                                    columnName={col}
-                                                    onRename={handleRenameColumn}
-                                                    onDelete={handleDeleteColumn}
-                                                />
-                                            )}
+                                            <ColumnHeaderMenu 
+                                                columnName={col}
+                                                onRename={handleRenameColumn}
+                                                onDelete={handleDeleteColumn}
+                                            />
                                         </div>
+                                    </th>
+                                ))}
+                                {visibleStatCols.map((col) => (
+                                    <th key={col} className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10`}>
+                                        <div className="flex items-center">{col}</div>
                                     </th>
                                 ))}
                             </tr>
@@ -1190,7 +1343,7 @@ const TableDetailPage: React.FC = () => {
                         <div className="text-center p-6 text-text-secondary">
                             <p>{table.rows.length > 0 ? "No words match your filter." : "This table is empty."}</p>
                             {table.rows.length === 0 && (
-                                <button onClick={() => setIsAddWordModalOpen(true)} className="mt-4 flex items-center mx-auto bg-accent text-primary font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-700 dark:hover:bg-sky-600 transition-colors duration-200">
+                                <button onClick={() => setIsAddWordModalOpen(true)} className="mt-4 flex items-center mx-auto bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors duration-200">
                                     <PlusIcon className="w-5 h-5 mr-2" /> Add your first word
                                 </button>
                             )}
@@ -1229,7 +1382,7 @@ const TableDetailPage: React.FC = () => {
                                     <h3 className="font-bold text-lg text-text-primary break-words pr-16">{row.keyword}</h3>
                                     
                                     <div className="mt-2 flex-grow overflow-y-auto space-y-1 text-sm pr-2">
-                                        {[...visibleUserCols, ...visibleStatCols]
+                                        {[...orderedVisibleUserCols, ...visibleStatCols]
                                             .filter(col => col !== firstVisibleImageCol?.name) // Don't show image URL as text
                                             .map(col => {
                                                 const value = getRowValue(row, col, userColumns);
@@ -1264,7 +1417,7 @@ const TableDetailPage: React.FC = () => {
                 <div className="text-center p-6 text-text-secondary">
                     <p>{table.rows.length > 0 ? "No words match your filter." : "This table is empty."}</p>
                      {table.rows.length === 0 && (
-                        <button onClick={() => setIsAddWordModalOpen(true)} className="mt-4 flex items-center mx-auto bg-accent text-primary font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-700 dark:hover:bg-sky-600 transition-colors duration-200">
+                        <button onClick={() => setIsAddWordModalOpen(true)} className="mt-4 flex items-center mx-auto bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors duration-200">
                             <PlusIcon className="w-5 h-5 mr-2" /> Add your first word
                         </button>
                     )}

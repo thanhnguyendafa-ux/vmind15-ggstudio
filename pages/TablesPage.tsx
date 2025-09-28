@@ -66,7 +66,7 @@ const TablesPage: React.FC = () => {
             )}
              <button 
                 onClick={() => setIsModalOpen(true)}
-                className="mt-6 bg-accent dark:bg-sky-500 text-white dark:text-slate-900 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-700 dark:hover:bg-sky-600 transition-colors duration-200"
+                className="mt-6 bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors duration-200"
             >
                 + Create New Table
             </button>

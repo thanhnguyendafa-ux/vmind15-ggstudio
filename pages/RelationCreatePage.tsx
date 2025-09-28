@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useData } from '../hooks/useData';
@@ -30,7 +29,6 @@ const RelationCreatePage: React.FC = () => {
         );
     }
     
-    // FIX: Map columns to their names to create an array of strings.
     const availableColumns = ['keyword', ...table.columns.map(c => c.name)];
 
     const handleColumnToggle = (col: string, type: 'question' | 'answer') => {
@@ -124,7 +122,7 @@ const RelationCreatePage: React.FC = () => {
                         <legend className="text-lg font-semibold text-accent mb-2">Question Columns</legend>
                         <div className="bg-secondary p-3 rounded-lg space-y-2">
                             {availableColumns.map(col => (
-                                <label key={`q-${col}`} className={`flex items-center p-2 rounded-md cursor-pointer ${questionCols.includes(col) ? 'bg-accent text-primary font-bold' : 'hover:bg-slate-700/50'}`}>
+                                <label key={`q-${col}`} className={`flex items-center p-2 rounded-md cursor-pointer ${questionCols.includes(col) ? 'bg-accent text-white font-bold' : 'hover:bg-slate-700/50'}`}>
                                     <input
                                         type="checkbox"
                                         checked={questionCols.includes(col)}
@@ -140,7 +138,7 @@ const RelationCreatePage: React.FC = () => {
                         <legend className="text-lg font-semibold text-accent mb-2">Answer Columns</legend>
                          <div className="bg-secondary p-3 rounded-lg space-y-2">
                             {availableColumns.map(col => (
-                                <label key={`a-${col}`} className={`flex items-center p-2 rounded-md cursor-pointer ${answerCols.includes(col) ? 'bg-accent text-primary font-bold' : 'hover:bg-slate-700/50'}`}>
+                                <label key={`a-${col}`} className={`flex items-center p-2 rounded-md cursor-pointer ${answerCols.includes(col) ? 'bg-accent text-white font-bold' : 'hover:bg-slate-700/50'}`}>
                                     <input
                                         type="checkbox"
                                         checked={answerCols.includes(col)}
@@ -158,11 +156,10 @@ const RelationCreatePage: React.FC = () => {
                     <legend className="text-lg font-semibold text-accent mb-2">Compatible Modes</legend>
                     <div className="bg-secondary p-3 rounded-lg space-y-2">
                         {Object.values(StudyMode).map(mode => (
-                             <label key={mode} className={`flex items-center p-2 rounded-md cursor-pointer ${modes.includes(mode) ? 'bg-accent text-primary font-bold' : 'hover:bg-slate-700/50'}`}>
+                             <label key={mode} className={`flex items-center p-2 rounded-md cursor-pointer ${modes.includes(mode) ? 'bg-accent text-white font-bold' : 'hover:bg-slate-700/50'}`}>
                                 <input
                                     type="checkbox"
                                     checked={modes.includes(mode)}
-                                    // FIX: Corrected a typo where 'm' was used instead of 'mode'.
                                     onChange={() => handleModeToggle(mode)}
                                     className="mr-3 h-5 w-5 rounded accent-primary"
                                 />
@@ -175,7 +172,7 @@ const RelationCreatePage: React.FC = () => {
                 {error && <p className="text-red-400 bg-red-900/50 p-3 rounded-md text-center" role="alert">{error}</p>}
 
                 <div className="flex justify-end">
-                    <button type="submit" disabled={isSaving} className="bg-accent text-primary font-bold py-3 px-8 rounded-lg text-lg disabled:bg-slate-500 disabled:cursor-not-allowed hover:bg-sky-500 transition-colors">
+                    <button type="submit" disabled={isSaving} className="bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-3 px-8 rounded-lg text-lg disabled:bg-slate-500 disabled:cursor-not-allowed hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors">
                         {isSaving ? 'Saving...' : 'Create Relation'}
                     </button>
                 </div>

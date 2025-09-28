@@ -106,7 +106,7 @@ const StudyPage: React.FC = () => {
             <div className="flex items-center justify-center mb-6 space-x-2">
                 {[1, 2, 3, 4, 5].map(s => (
                     <React.Fragment key={s}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= s ? 'bg-accent text-primary' : 'bg-secondary text-text-secondary'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= s ? 'bg-accent text-white' : 'bg-secondary text-text-secondary'}`}>
                         {s}
                     </div>
                     {s < 5 && <div className={`h-1 flex-1 ${step > s ? 'bg-accent' : 'bg-secondary'}`}></div>}
@@ -120,7 +120,7 @@ const StudyPage: React.FC = () => {
                      {tables.length > 0 ? (
                         <div className="space-y-2">
                             {tables.map(table => (
-                                <label key={table.id} className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${selectedTableIds.includes(table.id) ? 'bg-accent text-primary font-bold' : 'bg-secondary'}`}>
+                                <label key={table.id} className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${selectedTableIds.includes(table.id) ? 'bg-accent text-white font-bold' : 'bg-secondary'}`}>
                                     <input type="checkbox" checked={selectedTableIds.includes(table.id)} onChange={() => handleTableToggle(table.id)} className="mr-3 h-5 w-5 rounded accent-primary" />
                                     {table.name} ({table.rows.length} words)
                                 </label>
@@ -131,7 +131,7 @@ const StudyPage: React.FC = () => {
                             <WarningIcon className="w-8 h-8 mx-auto mb-2"/>
                             <p className="font-bold">No Tables Found</p>
                             <p className="text-sm mb-4">You need to create a table before you can start a study session.</p>
-                            <Link to="/tables" className="bg-accent text-primary font-bold py-2 px-4 rounded-lg hover:bg-sky-500">
+                            <Link to="/tables" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-800">
                                 Create a Table
                             </Link>
                         </div>
@@ -145,7 +145,7 @@ const StudyPage: React.FC = () => {
                     <p className="text-sm text-text-secondary mb-3">If you choose more than one, the mode will be randomized for each question.</p>
                     <div className="space-y-2">
                         {Object.values(StudyMode).map(mode => (
-                             <label key={mode} className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${selectedModes.includes(mode) ? 'bg-accent text-primary font-bold' : 'bg-secondary'}`}>
+                             <label key={mode} className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${selectedModes.includes(mode) ? 'bg-accent text-white font-bold' : 'bg-secondary'}`}>
                                 <input type="checkbox" checked={selectedModes.includes(mode)} onChange={() => handleModeToggle(mode)} className="mr-3 h-5 w-5 rounded accent-primary" />
                                 {mode}
                             </label>
@@ -157,14 +157,14 @@ const StudyPage: React.FC = () => {
             {step === 3 && (
                 <div>
                     <h2 className="text-xl font-semibold text-accent mb-4">Step 3: Select Relations</h2>
-                    <label className={`flex items-center p-3 rounded-lg cursor-pointer transition-all mb-4 ${useRandomRelation ? 'bg-accent text-primary font-bold' : 'bg-secondary'}`}>
+                    <label className={`flex items-center p-3 rounded-lg cursor-pointer transition-all mb-4 ${useRandomRelation ? 'bg-accent text-white font-bold' : 'bg-secondary'}`}>
                         <input type="checkbox" checked={useRandomRelation} onChange={handleRandomRelationToggle} className="mr-3 h-5 w-5 rounded accent-primary" />
                         Randomly select a relation for each question
                     </label>
                     {!useRandomRelation && (
                         <div className="space-y-2">
                             {compatibleRelations.length > 0 ? compatibleRelations.map(rel => (
-                                <label key={rel.id} className={`flex items-center p-3 rounded-lg transition-all ${selectedRelationIds.includes(rel.id) ? 'bg-accent text-primary font-bold' : 'bg-secondary'}`}>
+                                <label key={rel.id} className={`flex items-center p-3 rounded-lg transition-all ${selectedRelationIds.includes(rel.id) ? 'bg-accent text-white font-bold' : 'bg-secondary'}`}>
                                     <input type="checkbox" checked={selectedRelationIds.includes(rel.id)} onChange={() => handleRelationToggle(rel.id)} className="mr-3 h-5 w-5 rounded accent-primary" />
                                     <span>{rel.name}</span>
                                 </label>
@@ -178,7 +178,7 @@ const StudyPage: React.FC = () => {
                                             <Link 
                                                 to={`/tables/${selectedTableIds[0]}/relations/new`}
                                                 state={{ preselectedModes: selectedModes }}
-                                                className="bg-accent text-primary font-bold py-2 px-4 rounded-lg hover:bg-sky-500 text-sm"
+                                                className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-800 text-sm"
                                             >
                                                 Create Relation
                                             </Link>
@@ -234,9 +234,9 @@ const StudyPage: React.FC = () => {
             <div className="mt-8 flex justify-between items-center">
                 <button onClick={() => setStep(s => s - 1)} className={`bg-secondary dark:bg-slate-700 text-text-primary dark:text-slate-200 py-2 px-4 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors ${step === 1 ? 'invisible' : ''}`}>Back</button>
                 
-                {step < 5 && <button onClick={() => setStep(s => s + 1)} disabled={!canProceed()} className="bg-accent text-primary font-bold py-2 px-4 rounded-lg disabled:bg-slate-500 disabled:cursor-not-allowed">Next</button>}
+                {step < 5 && <button onClick={() => setStep(s => s + 1)} disabled={!canProceed()} className="bg-accent text-white font-bold py-2 px-4 rounded-lg disabled:bg-slate-500 disabled:cursor-not-allowed">Next</button>}
                 
-                {step === 5 && <button onClick={startStudySession} disabled={!canProceed()} className="flex items-center justify-center bg-accent text-primary font-bold py-3 px-6 rounded-lg disabled:bg-slate-500 disabled:cursor-not-allowed hover:bg-sky-500 transition-colors">
+                {step === 5 && <button onClick={startStudySession} disabled={!canProceed()} className="flex items-center justify-center bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-3 px-6 rounded-lg disabled:bg-slate-500 disabled:cursor-not-allowed hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors">
                     <BrainIcon className="w-5 h-5 mr-2" /> Start Studying
                 </button>}
             </div>

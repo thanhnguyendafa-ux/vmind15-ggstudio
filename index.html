@@ -1,11 +1,19 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vmind 1.5</title>
+    <script>
+      (function() {
+        try {
+          if (localStorage.getItem('vmind-theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -15,7 +23,7 @@
             colors: {
               'primary': '#ffffff',
               'secondary': '#f1f5f9', // slate-100
-              'accent': '#2563eb', // blue-600
+              'accent': '#1d4ed8', // blue-700
               'text-primary': '#0f172a', // slate-900
               'text-secondary': '#64748b', // slate-500
             },
@@ -23,18 +31,49 @@
         },
       }
     </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+      body {
+        font-family: 'Inter', sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
+        background-color: #f1f5f9; /* slate-100 */
+        padding: 1rem;
+        box-sizing: border-box;
+      }
+
+      .dark body {
+        background-color: #020617; /* slate-950 */
+      }
+
+      #root {
+        max-width: 1280px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        color: #0f172a;
+        min-height: calc(100vh - 2rem);
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        overflow: hidden;
+      }
+      
+      .dark #root {
+        background-color: #0f172a; /* slate-900 */
+        color: #f8fafc; /* slate-50 */
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
     "react/": "https://aistudiocdn.com/react@^19.1.1/",
     "react": "https://aistudiocdn.com/react@^19.1.1",
     "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.3",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
   }
 }
 </script>
 </head>
-  <body class="bg-primary text-text-primary dark:bg-slate-900 dark:text-text-primary">
+  <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

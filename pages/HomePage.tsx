@@ -64,7 +64,7 @@ const HomePage: React.FC = () => {
             </section>
             
             <section>
-                 <Link to="/study" className="w-full flex items-center justify-center bg-accent dark:bg-sky-500 text-white dark:text-slate-900 font-bold py-4 px-6 rounded-lg shadow-lg hover:bg-blue-700 dark:hover:bg-sky-600 transition-colors duration-200 text-xl">
+                 <Link to="/study" className="w-full flex items-center justify-center bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-4 px-6 rounded-lg shadow-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors duration-200 text-xl">
                     <BrainIcon className="w-6 h-6 mr-3" />
                     Start a New Study Session
                 </Link>

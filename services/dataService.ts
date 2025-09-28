@@ -1,11 +1,14 @@
-
-import { VocabTable, VocabRow, Relation, StudyMode, GlobalStats, VocabRowStats, StudyConfig, StudySession, WordProgress, ColumnDef } from '../types';
+import { VocabTable, VocabRow, Relation, StudyMode, GlobalStats, VocabRowStats, StudyConfig, StudySession, WordProgress, ColumnDef, VmindSettings, RewardEvent, BackupRecord } from '../types';
+import { FIBONACCI_MILESTONES } from '../constants';
 
 // --- In-memory database simulation ---
 let mockTables: VocabTable[];
 let mockRelations: Relation[];
 let mockGlobalStats: GlobalStats;
 let mockStudySessions: StudySession[];
+let mockSettings: VmindSettings;
+let mockRewardEvents: RewardEvent[];
+let mockBackupRecords: BackupRecord[];
 
 const recalculateStats = (stats: Partial<VocabRowStats>): VocabRowStats => {
     const passed1 = stats.Passed1 || 0;
@@ -195,6 +198,31 @@ const initializeData = () => {
             wordCount: 15,
         }
     ];
+
+    mockSettings = {
+        theme: 'dark',
+        quitPenaltyEnabled: true,
+        autoBackup: {
+            enabled: true,
+            interval: '6h',
+            keep: 5,
+        },
+        conflictPolicy: 'merge',
+    };
+
+    mockRewardEvents = [
+        { id: 'evt3', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), type: 'session_quit', description: 'Quit session with English B1-B2, Mandarin HSK1', xpChange: -30 },
+        { id: 'evt2', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), type: 'milestone_unlocked', description: 'Unlocked "Celestial" badge!', xpChange: 0 },
+        { id: 'evt1', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), type: 'session_complete', description: 'Completed English C2 session', xpChange: 120 },
+    ];
+
+    mockBackupRecords = [
+        { id: 'bak5', timestamp: new Date(Date.now() - 1 * 6 * 60 * 60 * 1000).toISOString(), type: 'auto', format: 'json', fileRef: 'backup_auto_1.json' },
+        { id: 'bak4', timestamp: new Date(Date.now() - 2 * 6 * 60 * 60 * 1000).toISOString(), type: 'auto', format: 'json', fileRef: 'backup_auto_2.json' },
+        { id: 'bak3', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), type: 'manual', format: 'csv', fileRef: 'backup_manual_1.csv' },
+        { id: 'bak2', timestamp: new Date(Date.now() - 3 * 6 * 60 * 60 * 1000).toISOString(), type: 'auto', format: 'json', fileRef: 'backup_auto_3.json' },
+        { id: 'bak1', timestamp: new Date(Date.now() - 4 * 6 * 60 * 60 * 1000).toISOString(), type: 'auto', format: 'json', fileRef: 'backup_auto_4.json' },
+    ];
 };
 
 // Initialize data on first import
@@ -261,6 +289,49 @@ export const dataService = {
     await new Promise(res => setTimeout(res, 100));
     return [...mockStudySessions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
+  getSettings: async (): Promise<VmindSettings> => {
+    await new Promise(res => setTimeout(res, 50));
+    return mockSettings;
+  },
+  updateSettings: async (newSettings: Partial<VmindSettings>): Promise<VmindSettings> => {
+    await new Promise(res => setTimeout(res, 50));
+    mockSettings = { ...mockSettings, ...newSettings };
+    return mockSettings;
+  },
+  getRewardEvents: async (): Promise<RewardEvent[]> => {
+    await new Promise(res => setTimeout(res, 100));
+    return [...mockRewardEvents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  },
+  getBackupHistory: async (): Promise<BackupRecord[]> => {
+    await new Promise(res => setTimeout(res, 100));
+    return [...mockBackupRecords].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  },
+  triggerManualBackup: async (format: 'json' | 'csv'): Promise<void> => {
+    await new Promise(res => setTimeout(res, 100)); // Shortened wait time as download is separate
+    const newBackup: BackupRecord = {
+        id: `bak-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        type: 'manual',
+        format,
+        fileRef: `backup_manual_${Date.now()}.${format}`
+    };
+    mockBackupRecords.unshift(newBackup);
+    // Keep only the last 5
+    mockBackupRecords = mockBackupRecords
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 5);
+  },
+  getAllDataForBackup: async (): Promise<object> => {
+    await new Promise(res => setTimeout(res, 100));
+    return {
+      tables: mockTables,
+      relations: mockRelations,
+      globalStats: mockGlobalStats,
+      studySessions: mockStudySessions,
+      settings: mockSettings,
+      rewardEvents: mockRewardEvents,
+    };
+  },
   saveStudySession: async function(sessionData: Omit<StudySession, 'id' | 'createdAt'>): Promise<void> {
     await new Promise(res => setTimeout(res, 50));
     const newSession: StudySession = {
@@ -300,11 +371,37 @@ export const dataService = {
 
         row.stats = recalculateStats(currentStats);
     });
-
-    mockGlobalStats.inQueueReal += 1;
-    mockGlobalStats.xp += 50 + (wordsMastered * 10); // +50 per session, +10 per mastered word
     
     const tableNames = mockTables.filter(t => config.tableIds.includes(t.id)).map(t => t.name);
+    
+    // --- Gamification Update ---
+    const oldXp = mockGlobalStats.xp;
+    const xpGained = 50 + (wordsMastered * 10);
+    mockGlobalStats.xp += xpGained;
+    const newXp = mockGlobalStats.xp;
+
+    mockRewardEvents.push({
+        id: `evt-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        type: 'session_complete',
+        description: `Completed session with ${tableNames.join(', ')}`,
+        xpChange: xpGained,
+    });
+
+    FIBONACCI_MILESTONES.forEach(milestone => {
+        if (oldXp < milestone.xp && newXp >= milestone.xp) {
+            mockRewardEvents.push({
+                id: `evt-${Date.now()}-${milestone.name}`,
+                timestamp: new Date().toISOString(),
+                type: 'milestone_unlocked',
+                description: `Unlocked "${milestone.name}" badge!`,
+                xpChange: 0,
+            });
+        }
+    });
+
+    mockGlobalStats.inQueueReal += 1;
+    
     await this.saveStudySession({
         status: 'completed',
         tableIds: config.tableIds,
@@ -328,11 +425,23 @@ export const dataService = {
             }
         }
     });
-
-    mockGlobalStats.quitQueueReal += 1;
-    mockGlobalStats.xp -= 30; // -30 penalty for quitting
     
     const tableNames = mockTables.filter(t => config.tableIds.includes(t.id)).map(t => t.name);
+
+    // --- Gamification Update ---
+    if (mockSettings.quitPenaltyEnabled) {
+        mockGlobalStats.xp -= 30;
+        mockRewardEvents.push({
+            id: `evt-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            type: 'session_quit',
+            description: `Quit session with ${tableNames.join(', ')}`,
+            xpChange: -30,
+        });
+    }
+
+    mockGlobalStats.quitQueueReal += 1;
+    
     await this.saveStudySession({
         status: 'quit',
         tableIds: config.tableIds,
@@ -381,7 +490,14 @@ export const dataService = {
     }
     
     const newRow = createNewRow(tableId, keyword, data);
-    table.rows.push(newRow);
+    
+    mockTables = mockTables.map(t => {
+      if (t.id === tableId) {
+        return { ...t, rows: [...t.rows, newRow] };
+      }
+      return t;
+    });
+
     return newRow;
   },
   
@@ -391,11 +507,6 @@ export const dataService = {
     if (!table) {
         throw new Error(`Table with id ${tableId} not found.`);
     }
-
-    const rowIndex = table.rows.findIndex(row => row.id === wordId);
-    if (rowIndex === -1) {
-        throw new Error(`Word with id ${wordId} not found.`);
-    }
     
     // Check for keyword conflict, excluding the current word being edited
     const keywordExists = table.rows.some(row => row.id !== wordId && row.keyword.toLowerCase() === newKeyword.toLowerCase());
@@ -403,98 +514,167 @@ export const dataService = {
         throw new Error(`The keyword "${newKeyword}" already exists in this table.`);
     }
 
-    const originalRow = table.rows[rowIndex];
-    const updatedRow = {
-        ...originalRow,
-        keyword: newKeyword,
-        data: newData,
-    };
-    table.rows[rowIndex] = updatedRow;
+    let updatedRow: VocabRow | null = null;
+    mockTables = mockTables.map(t => {
+        if (t.id === tableId) {
+            return {
+                ...t,
+                rows: t.rows.map(row => {
+                    if (row.id === wordId) {
+                        updatedRow = {
+                            ...row,
+                            keyword: newKeyword,
+                            data: newData,
+                        };
+                        return updatedRow;
+                    }
+                    return row;
+                })
+            };
+        }
+        return t;
+    });
+
+    if (!updatedRow) {
+      throw new Error(`Word with id ${wordId} not found.`);
+    }
+
     return updatedRow;
   },
 
   deleteWord: async (tableId: string, wordId: string): Promise<void> => {
     await new Promise(res => setTimeout(res, 200));
-    const table = mockTables.find(t => t.id === tableId);
-    if (!table) {
-        throw new Error(`Table with id ${tableId} not found.`);
-    }
-    
-    const initialLength = table.rows.length;
-    table.rows = table.rows.filter(row => row.id !== wordId);
-    if (table.rows.length === initialLength) {
-        // This could happen if the wordId was not found, good to be aware of.
-        console.warn(`Attempted to delete word with id ${wordId}, but it was not found.`);
-    }
+    mockTables = mockTables.map(table => {
+      if (table.id === tableId) {
+        const initialLength = table.rows.length;
+        const newRows = table.rows.filter(row => row.id !== wordId);
+        if (newRows.length === initialLength) {
+            console.warn(`Attempted to delete word with id ${wordId}, but it was not found.`);
+        }
+        return { ...table, rows: newRows };
+      }
+      return table;
+    });
   },
 
   addColumn: async (tableId: string, newColumn: ColumnDef): Promise<void> => {
     await new Promise(res => setTimeout(res, 100));
-    const table = mockTables.find(t => t.id === tableId);
-    if (!table || table.columns.some(c => c.name === newColumn.name) || newColumn.name.trim() === '' || newColumn.name.toLowerCase() === 'keyword') {
-      console.error("Invalid table or column name exists.");
-      return;
-    }
-    table.columns.push(newColumn);
-    table.rows.forEach(row => {
-      row.data[newColumn.name] = '';
+    mockTables = mockTables.map(table => {
+      if (table.id === tableId) {
+        if (table.columns.some(c => c.name === newColumn.name) || newColumn.name.trim() === '' || newColumn.name.toLowerCase() === 'keyword') {
+          console.error("Invalid table or column name exists.");
+          return table;
+        }
+        return {
+          ...table,
+          columns: [...table.columns, newColumn],
+          rows: table.rows.map(row => ({
+            ...row,
+            data: { ...row.data, [newColumn.name]: '' }
+          }))
+        };
+      }
+      return table;
     });
   },
 
   removeColumn: async (tableId: string, columnName: string): Promise<void> => {
      await new Promise(res => setTimeout(res, 100));
-    const table = mockTables.find(t => t.id === tableId);
-    if (!table || columnName.toLowerCase() === 'keyword' || !table.columns.some(c => c.name === columnName)) {
-      console.error("Cannot remove keyword or non-existent column.");
-      return;
-    }
-    table.columns = table.columns.filter(c => c.name !== columnName);
-    table.rows.forEach(row => {
-      delete row.data[columnName];
-    });
+     mockTables = mockTables.map(table => {
+       if (table.id === tableId) {
+         if (columnName.toLowerCase() === 'keyword' || !table.columns.some(c => c.name === columnName)) {
+           console.error("Cannot remove keyword or non-existent column.");
+           return table;
+         }
+         
+         const newRows = table.rows.map(row => {
+           const newData = { ...row.data };
+           delete newData[columnName];
+           return { ...row, data: newData };
+         });
+
+         return {
+           ...table,
+           columns: table.columns.filter(c => c.name !== columnName),
+           rows: newRows
+         };
+       }
+       return table;
+     });
   },
 
   renameColumn: async (tableId: string, oldName: string, newName: string): Promise<void> => {
     await new Promise(res => setTimeout(res, 100));
-    const table = mockTables.find(t => t.id === tableId);
-    if (!table || newName.trim() === '' || oldName.toLowerCase() === 'keyword' || newName.toLowerCase() === 'keyword' || table.columns.some(c => c.name === newName)) {
-      console.error("Invalid rename operation.");
-      return;
-    }
-    const colIndex = table.columns.findIndex(c => c.name === oldName);
-    if (colIndex === -1) return;
+    mockTables = mockTables.map(table => {
+      if (table.id === tableId) {
+        if (newName.trim() === '' || oldName.toLowerCase() === 'keyword' || newName.toLowerCase() === 'keyword' || table.columns.some(c => c.name === newName)) {
+          console.error("Invalid rename operation.");
+          return table;
+        }
+        const colExists = table.columns.some(c => c.name === oldName);
+        if (!colExists) return table;
 
-    table.columns[colIndex].name = newName;
-    table.rows.forEach(row => {
-      row.data[newName] = row.data[oldName];
-      delete row.data[oldName];
+        const newRows = table.rows.map(row => {
+          const newData = { ...row.data };
+          if (Object.prototype.hasOwnProperty.call(newData, oldName)) {
+              newData[newName] = newData[oldName];
+              delete newData[oldName];
+          }
+          return { ...row, data: newData };
+        });
+
+        return {
+          ...table,
+          columns: table.columns.map(c => c.name === oldName ? { ...c, name: newName } : c),
+          rows: newRows
+        };
+      }
+      return table;
     });
   },
   
   resetWordStats: async (tableId: string, wordId: string): Promise<void> => {
     await new Promise(res => setTimeout(res, 100));
-    const table = mockTables.find(t => t.id === tableId);
-    const row = table?.rows.find(r => r.id === wordId);
-    if (row) {
-        row.stats = recalculateStats({
-            Passed1: 0, Passed2: 0, Failed: 0,
-            InQueue: 0, QuitQueue: false,
-            LastPracticeDate: null, flashcardStatus: 'None'
-        });
-    }
+    mockTables = mockTables.map(table => {
+      if (table.id === tableId) {
+        return {
+          ...table,
+          rows: table.rows.map(row => {
+            if (row.id === wordId) {
+              return {
+                ...row,
+                stats: recalculateStats({
+                    Passed1: 0, Passed2: 0, Failed: 0,
+                    InQueue: 0, QuitQueue: false,
+                    LastPracticeDate: null, flashcardStatus: 'None'
+                })
+              };
+            }
+            return row;
+          })
+        };
+      }
+      return table;
+    });
   },
 
   bulkTagWords: async (tableId: string, wordIds: string[], tagsToAdd: string[]): Promise<void> => {
     await new Promise(res => setTimeout(res, 200));
-    const table = mockTables.find(t => t.id === tableId);
-    if (!table) return;
-
-    const wordIdSet = new Set(wordIds);
-    table.rows.forEach(row => {
-        if (wordIdSet.has(row.id)) {
-            const newTags = new Set([...row.tags, ...tagsToAdd]);
-            row.tags = Array.from(newTags).sort();
-        }
+    mockTables = mockTables.map(table => {
+      if (table.id === tableId) {
+        const wordIdSet = new Set(wordIds);
+        return {
+          ...table,
+          rows: table.rows.map(row => {
+            if (wordIdSet.has(row.id)) {
+              const newTags = new Set([...row.tags, ...tagsToAdd]);
+              return { ...row, tags: Array.from(newTags).sort() };
+            }
+            return row;
+          })
+        };
+      }
+      return table;
     });
   },
 

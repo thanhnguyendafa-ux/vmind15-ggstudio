@@ -1,11 +1,10 @@
-
 import React, { useMemo } from 'react';
 import { useData } from '../hooks/useData';
 import { Link } from 'react-router-dom';
 import { dataService } from '../services/dataService';
-import { VocabRow, VocabTable } from '../types';
+import { VocabRow } from '../types';
+import { TrendingUpIcon, LogOutIcon, CheckCircleIcon, XCircleIcon } from '../components/Icons';
 
-// A type for the calculated stats for each table
 interface TableStats {
     id: string;
     name: string;
@@ -15,7 +14,6 @@ interface TableStats {
     avgFailureRate: number;
 }
 
-// A type for a word with its calculated priority score and table name
 interface WordWithScore extends VocabRow {
     tableName: string;
     priorityScore: number;
@@ -47,7 +45,15 @@ const TableStatCard: React.FC<{ stats: TableStats }> = ({ stats }) => (
 
 
 const StatsPage: React.FC = () => {
-    const { globalStats, tables, loading } = useData();
+    const { globalStats, tables, studySessions, loading } = useData();
+    
+    const avgSuccessRate = useMemo(() => {
+        if (!tables) return 0;
+        const allRows = tables.flatMap(t => t.rows);
+        if (allRows.length === 0) return 0;
+        const totalSuccessRate = allRows.reduce((sum, row) => sum + row.stats.SuccessRate, 0);
+        return (totalSuccessRate / allRows.length) * 100;
+    }, [tables]);
     
     const tableStats = useMemo<TableStats[]>(() => {
         if (!tables) return [];
@@ -99,10 +105,65 @@ const StatsPage: React.FC = () => {
         return allWordsWithScores.slice(0, 10);
     }, [tables]);
 
+    const chartData = useMemo(() => {
+        if (!tables || !studySessions) return null;
+
+        const allRows = tables.flatMap(t => t.rows);
+
+        // Success vs Failure
+        const totalPassed = allRows.reduce((sum, row) => sum + row.stats.Passed1 + row.stats.Passed2, 0);
+        const totalFailed = allRows.reduce((sum, row) => sum + row.stats.Failed, 0);
+        const totalAttemptsAggregated = totalPassed + totalFailed;
+
+        // Attempts over time
+        const attemptsByDate = studySessions.reduce((acc, session) => {
+            const date = new Date(session.createdAt).toLocaleDateString();
+            acc[date] = (acc[date] || 0) + session.wordCount;
+            return acc;
+        }, {} as Record<string, number>);
+        const attemptsOverTime = Object.entries(attemptsByDate).map(([date, attempts]) => ({ date, attempts })).slice(-7);
+
+        // InQueue growth
+        const sortedSessions = [...studySessions].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        let cumulativeInQueue = 0;
+        const inQueueGrowthData = sortedSessions.reduce((acc, session) => {
+            if (session.status === 'completed') {
+                cumulativeInQueue += 1;
+                const date = new Date(session.createdAt).toLocaleDateString();
+                acc[date] = cumulativeInQueue;
+            }
+            return acc;
+        }, {} as Record<string, number>);
+        const inQueueGrowth = Object.entries(inQueueGrowthData).map(([date, count]) => ({ date, count })).slice(-7);
+
+        // Words You Quit
+        const quitWords = allRows.filter(row => row.stats.QuitQueue).map(row => ({
+            ...row,
+            tableName: tables.find(t => t.id === row.tableId)?.name || 'Unknown Table'
+        }));
+
+        return {
+            successFailure: {
+                passed: totalPassed,
+                failed: totalFailed,
+                total: totalAttemptsAggregated,
+                successRate: totalAttemptsAggregated > 0 ? (totalPassed / totalAttemptsAggregated) * 100 : 0,
+                failureRate: totalAttemptsAggregated > 0 ? (totalFailed / totalAttemptsAggregated) * 100 : 0,
+            },
+            attemptsOverTime,
+            inQueueGrowth,
+            quitWords
+        };
+    }, [tables, studySessions]);
+
 
     if (loading) {
         return <div className="p-4 sm:p-6 text-center">Loading statistics...</div>;
     }
+
+    const maxAttempts = chartData ? Math.max(...chartData.attemptsOverTime.map(d => d.attempts), 0) : 0;
+    const maxInQueue = chartData ? Math.max(...chartData.inQueueGrowth.map(d => d.count), 0) : 0;
+
 
     return (
         <div className="p-4 sm:p-6 space-y-8">
@@ -115,7 +176,7 @@ const StatsPage: React.FC = () => {
 
             <section>
                 <h2 className="text-2xl font-bold text-text-primary mb-4">Global KPIs</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-secondary p-4 rounded-lg text-center">
                         <p className="text-text-secondary">Experience Points</p>
                         <p className="text-3xl font-bold text-yellow-400">{globalStats?.xp ?? 0}</p>
@@ -127,6 +188,10 @@ const StatsPage: React.FC = () => {
                      <div className="bg-secondary p-4 rounded-lg text-center">
                         <p className="text-text-secondary">Abandoned Sessions</p>
                         <p className="text-3xl font-bold text-red-400">{globalStats?.quitQueueReal ?? 0}</p>
+                    </div>
+                    <div className="bg-secondary p-4 rounded-lg text-center">
+                        <p className="text-text-secondary">Avg. Success Rate</p>
+                        <p className="text-3xl font-bold text-sky-400">{avgSuccessRate.toFixed(1)}%</p>
                     </div>
                 </div>
             </section>
@@ -172,12 +237,91 @@ const StatsPage: React.FC = () => {
             </section>
 
             <section>
-                 <h2 className="text-2xl font-bold text-text-primary mb-4">Charts</h2>
-                 <div className="bg-secondary p-4 rounded-lg h-64 flex items-center justify-center">
-                    <p className="text-text-secondary">Charts coming soon...</p>
-                 </div>
-            </section>
+                 <h2 className="text-2xl font-bold text-text-primary mb-4">Charts & Insights</h2>
+                 {chartData && (chartData.attemptsOverTime.length > 0 || chartData.quitWords.length > 0) ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Left Column */}
+                        <div className="space-y-8">
+                            <div className="bg-secondary p-4 rounded-lg">
+                                <h3 className="font-bold mb-4 flex items-center"><TrendingUpIcon className="w-5 h-5 mr-2 text-accent"/>Attempts Over Time</h3>
+                                <div className="space-y-2">
+                                    {chartData.attemptsOverTime.map(data => (
+                                        <div key={data.date} className="flex items-center text-xs">
+                                            <span className="w-20 text-text-secondary text-right pr-2">{data.date}</span>
+                                            <div className="flex-grow bg-slate-700 rounded-sm h-5">
+                                                <div className="bg-accent h-5 rounded-sm flex items-center justify-end px-2" style={{ width: `${maxAttempts > 0 ? (data.attempts / maxAttempts) * 100 : 0}%` }}>
+                                                    <span className="font-bold text-primary">{data.attempts}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
 
+                            <div className="bg-secondary p-4 rounded-lg">
+                                <h3 className="font-bold mb-4 flex items-center"><TrendingUpIcon className="w-5 h-5 mr-2 text-accent"/>Completed Sessions Growth</h3>
+                                 <div className="space-y-2">
+                                    {chartData.inQueueGrowth.map(data => (
+                                        <div key={data.date} className="flex items-center text-xs">
+                                            <span className="w-20 text-text-secondary text-right pr-2">{data.date}</span>
+                                            <div className="flex-grow bg-slate-700 rounded-sm h-5">
+                                                <div className="bg-sky-500 h-5 rounded-sm flex items-center justify-end px-2" style={{ width: `${maxInQueue > 0 ? (data.count / maxInQueue) * 100 : 0}%` }}>
+                                                    <span className="font-bold text-primary">{data.count}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        {/* Right Column */}
+                        <div className="space-y-8">
+                            <div className="bg-secondary p-4 rounded-lg">
+                                <h3 className="font-bold mb-4">Success vs. Failure (All Time)</h3>
+                                <div className="space-y-3">
+                                    <div className="flex items-center">
+                                        <CheckCircleIcon className="w-5 h-5 mr-2 text-green-400" />
+                                        <span className="w-24">Success</span>
+                                        <div className="flex-grow bg-slate-700 h-6 rounded-md">
+                                            <div className="bg-green-500 h-6 rounded-md flex items-center justify-center font-bold" style={{width: `${chartData.successFailure.successRate}%`}}>
+                                               {chartData.successFailure.passed}
+                                            </div>
+                                        </div>
+                                    </div>
+                                     <div className="flex items-center">
+                                        <XCircleIcon className="w-5 h-5 mr-2 text-red-400" />
+                                        <span className="w-24">Failure</span>
+                                        <div className="flex-grow bg-slate-700 h-6 rounded-md">
+                                            <div className="bg-red-500 h-6 rounded-md flex items-center justify-center font-bold" style={{width: `${chartData.successFailure.failureRate}%`}}>
+                                                {chartData.successFailure.failed}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                             <div className="bg-secondary p-4 rounded-lg">
+                                <h3 className="font-bold mb-4 flex items-center"><LogOutIcon className="w-5 h-5 mr-2 text-red-400"/>Words You Quit On</h3>
+                                {chartData.quitWords.length > 0 ? (
+                                    <ul className="divide-y divide-slate-600 max-h-60 overflow-y-auto">
+                                        {chartData.quitWords.map(word => (
+                                            <li key={word.id} className="py-2 px-1 flex justify-between items-center text-sm">
+                                                <p className="font-bold text-text-primary">{word.keyword}</p>
+                                                <p className="text-xs text-text-secondary">{word.tableName}</p>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-text-secondary text-center py-4">No quit words found. Keep it up!</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                 ) : (
+                    <div className="bg-secondary p-4 rounded-lg h-64 flex items-center justify-center">
+                        <p className="text-text-secondary">Not enough data to display charts. Complete some study sessions!</p>
+                    </div>
+                 )}
+            </section>
         </div>
     );
 };

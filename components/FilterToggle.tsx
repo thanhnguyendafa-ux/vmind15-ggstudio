@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { FilterIcon, XIcon, PlusIcon } from './Icons';
 import { getColumnType } from '../utils';

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { VocabRow, Relation, VocabRowStats } from '../types';
@@ -112,17 +113,20 @@ const FlashcardSessionPage: React.FC = () => {
         const currentStatus = currentItem.status;
         let nextStatus: 'Good' | 'Easy' = 'Good';
         let nextDeck = [...deck];
-        const knownItem = nextDeck.shift()!;
+        const knownItem = nextDeck.shift();
+        
+        if (!knownItem) {
+            setIsUpdating(false);
+            return;
+        }
 
         if (currentStatus === 'Good' || currentStatus === 'Easy') {
             nextStatus = 'Easy';
             // Send to tail
-            // FIX: Explicitly type newItem to ensure it matches DeckItem.
             const newItem: DeckItem = { ...knownItem, status: nextStatus };
             nextDeck.push(newItem);
         } else { // 'None' or 'Hard'
             nextStatus = 'Good';
-            // FIX: Explicitly type newItem to ensure it matches DeckItem.
             const newItem: DeckItem = { ...knownItem, status: nextStatus };
             // insert at y+8
             if (nextDeck.length >= 8) {
@@ -145,8 +149,13 @@ const FlashcardSessionPage: React.FC = () => {
         
         const nextStatus = 'Hard';
         let nextDeck = [...deck];
-        const unknownItem = nextDeck.shift()!;
-        // FIX: Explicitly type newItem to ensure it matches DeckItem.
+        const unknownItem = nextDeck.shift();
+
+        if (!unknownItem) {
+            setIsUpdating(false);
+            return;
+        }
+
         const newItem: DeckItem = { ...unknownItem, status: nextStatus };
 
         // insert at y+2
