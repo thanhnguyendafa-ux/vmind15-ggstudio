@@ -39,7 +39,6 @@ const FullExplanationModal: React.FC<{
                     <span className="font-semibold text-text-secondary">Keyword:</span>
                     <span className="text-text-primary">{word.keyword}</span>
                 </div>
-                {/* FIX: Use col.name for key, display, and data access, as 'col' is an object. */}
                 {table.columns.map(col => (
                     <div key={col.name} className="flex justify-between">
                         <span className="font-semibold text-text-secondary">{col.name}:</span>

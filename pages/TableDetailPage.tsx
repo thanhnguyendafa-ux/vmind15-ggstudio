@@ -35,7 +35,7 @@ const WordActionsMenu: React.FC<{
     return (
         <div className="relative" ref={ref}>
             <button 
-                onClick={() => setIsOpen(p => !p)} 
+                onClick={(e) => { e.stopPropagation(); setIsOpen(p => !p); }} 
                 className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600"
             >
                 <MoreVerticalIcon className="w-5 h-5" />
@@ -457,7 +457,10 @@ const BulkTagModal: React.FC<{
     );
 };
 
-const getRowValue = (row: VocabRow, column: string, tableColumns: string[]): any => {
+type AugmentedVocabRow = VocabRow & { priorityScore?: number };
+
+const getRowValue = (row: AugmentedVocabRow, column: string, tableColumns: string[]): any => {
+    if (column === 'PriorityScore') return row.priorityScore;
     if (column === 'keyword') return row.keyword;
     if (tableColumns.includes(column)) return row.data[column] || '';
     if (DEFAULT_COLUMNS.includes(column)) {
@@ -467,7 +470,7 @@ const getRowValue = (row: VocabRow, column: string, tableColumns: string[]): any
     return '';
 };
 
-const checkCondition = (row: VocabRow, layer: FilterLayer, table: VocabTable): boolean => {
+const checkCondition = (row: AugmentedVocabRow, layer: FilterLayer, table: VocabTable): boolean => {
     const { column, condition, value } = layer;
     const rowValue = getRowValue(row, column, table.columns.map(c => c.name));
     const colType = getColumnType(column, table.columns);
@@ -859,10 +862,15 @@ const TableDetailPage: React.FC = () => {
         </div>
     );
 
-    const processedRows = useMemo(() => {
+    const processedRows: AugmentedVocabRow[] = useMemo(() => {
         if (!table) return [];
         
-        let rows = [...table.rows];
+        const maxInQueueInTable = table.rows.length > 0 ? Math.max(...table.rows.map(r => r.stats.InQueue)) : 0;
+            
+        let rows: AugmentedVocabRow[] = table.rows.map(row => ({
+            ...row,
+            priorityScore: dataService.calculatePriorityScore(row, maxInQueueInTable)
+        }));
 
         if (filterLayers.length > 0) {
             rows = rows.filter(row => filterLayers.every(layer => checkCondition(row, layer, table)));
@@ -1096,7 +1104,7 @@ const TableDetailPage: React.FC = () => {
             )}
 
             {viewMode === 'table' && (
-                <div className="overflow-x-auto bg-secondary rounded-lg border border-slate-300 dark:border-slate-700">
+                <div className="overflow-auto bg-secondary rounded-lg border border-slate-300 dark:border-slate-700 max-h-[65vh]">
                     <table className="w-full text-left text-sm whitespace-nowrap">
                         <thead className="bg-slate-100 dark:bg-slate-700">
                             <tr>
@@ -1127,7 +1135,7 @@ const TableDetailPage: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-300 dark:divide-slate-600">
                             {processedRows.map(row => (
-                                <tr key={row.id} className="hover:bg-slate-200/50 dark:hover:bg-slate-700/50 cursor-pointer" onClick={() => setSelectedWordForCard(row)}>
+                                <tr key={row.id} className="hover:bg-slate-200/50 dark:hover:bg-slate-700/50">
                                     <td className="p-3 w-12 sticky left-0 z-10 bg-secondary">
                                         <input
                                             type="checkbox"
@@ -1138,29 +1146,33 @@ const TableDetailPage: React.FC = () => {
                                         />
                                     </td>
                                     {headers.map((col) => {
-                                        let content: React.ReactNode = null;
-                                        const colDef = table.columns.find(c => c.name === col);
                                         const value = getRowValue(row, col, userColumns);
+                                        let content: React.ReactNode;
 
-                                        if (colDef?.type === 'image' && value) {
-                                            content = <img src={value} alt={row.keyword} className="h-10 w-16 object-cover rounded-md" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling?.remove() }} />;
-                                        } else if (col === 'keyword') {
-                                            content = row.keyword;
-                                        } else if (userColumns.includes(col)) {
-                                            content = row.data[col];
-                                        } else if (DEFAULT_COLUMNS.includes(col)) {
-                                            if (col === 'Tags') {
-                                                content = row.tags.join(', ');
+                                        if (col === 'keyword') {
+                                            content = (
+                                                <div className="flex items-center justify-between min-w-[150px]">
+                                                    <span>{value}</span>
+                                                    <WordActionsMenu
+                                                        word={row as VocabRow}
+                                                        onEdit={handleEditWord}
+                                                        onReset={handleResetStats}
+                                                        onDelete={handleDeleteWord}
+                                                    />
+                                                </div>
+                                            );
+                                        } else {
+                                            const colDef = table.columns.find(c => c.name === col);
+                                            if (colDef?.type === 'image' && value) {
+                                                content = <img src={value} alt={row.keyword} className="h-10 w-16 object-cover rounded-md" onError={(e) => { e.currentTarget.style.display = 'none'; }} />;
+                                            } else if (col === 'PriorityScore') {
+                                                content = value !== undefined && value !== null ? Number(value).toFixed(2) : 'N/A';
+                                            } else if (col === 'SuccessRate' || col === 'FailureRate') {
+                                                content = value !== undefined && value !== null ? `${(Number(value) * 100).toFixed(0)}%` : 'N/A';
+                                            } else if (typeof value === 'boolean') {
+                                                content = value ? 'Yes' : 'No';
                                             } else {
-                                                const statValue = row.stats[col as keyof typeof row.stats];
-                                                if (typeof statValue === 'boolean') {
-                                                    content = statValue ? 'Yes' : 'No';
-                                                } else if (typeof statValue === 'number' && (col === 'SuccessRate' || col === 'FailureRate')) {
-                                                    content = (statValue * 100).toFixed(0) + '%';
-                                                }
-                                                else {
-                                                    content = String(statValue ?? '');
-                                                }
+                                                content = String(value ?? '');
                                             }
                                         }
                                         

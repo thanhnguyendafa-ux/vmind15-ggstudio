@@ -2,7 +2,7 @@
 export const DEFAULT_COLUMNS = [
   "Tags", "Passed1", "Passed2", "Failed", "TotalAttempt", 
   "SuccessRate", "FailureRate", "RankPoint", "Level", "InQueue", 
-  "QuitQueue", "LastPracticeDate"
+  "QuitQueue", "LastPracticeDate", "PriorityScore"
 ];
 
 export const FIBONACCI_MILESTONES = [
