@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { StudyConfig, VocabRow, Relation, StudyMode, VocabTable, WordProgress, WordStatus } from '../types';
@@ -266,8 +267,10 @@ const QStudyPage: React.FC = () => {
     }, [config, wordProgress, fetchData]);
 
 
-    const allWordsPassed = useMemo(() => 
-        Object.keys(wordProgress).length > 0 && Object.values(wordProgress).every((p: WordProgress) => p.status === 'pass2'),
+    // FIX: Explicitly cast Object.values to WordProgress[] to correct a type inference issue where
+    // the argument `p` in `.every()` was being inferred as `unknown`.
+    const allWordsPassed = useMemo(() =>
+        Object.keys(wordProgress).length > 0 && (Object.values(wordProgress) as WordProgress[]).every(p => p.status === 'pass2'),
     [wordProgress]);
     
     useEffect(() => {
@@ -434,7 +437,8 @@ const QStudyPage: React.FC = () => {
                     })}
                 </div>
                  <div className="h-1 mt-2 bg-slate-700 rounded-full">
-                    <div className="bg-accent h-1 rounded-full" style={{ width: `${Object.values(wordProgress).filter(p => p.status === 'pass2').length / config.words.length * 100}%` }}></div>
+                    {/* FIX: Explicitly cast Object.values to WordProgress[] to correct a type inference issue. */}
+                    <div className="bg-accent h-1 rounded-full" style={{ width: `${(Object.values(wordProgress) as WordProgress[]).filter(p => p.status === 'pass2').length / config.words.length * 100}%` }}></div>
                 </div>
             </header>
 

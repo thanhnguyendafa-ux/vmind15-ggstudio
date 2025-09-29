@@ -13,11 +13,13 @@ interface DataContextType {
   backupHistory: BackupRecord[];
   session: Session | null;
   loading: boolean;
+  isSampleDataActive: boolean;
   fetchData: () => void;
   toggleTheme: () => void;
   updateSettings: (newSettings: Partial<VmindSettings>) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  toggleSampleData: (active: boolean) => Promise<void>;
 }
 
 export const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -32,18 +34,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [backupHistory, setBackupHistory] = useState<BackupRecord[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  const [isSampleDataActive, setIsSampleDataActive] = useState<boolean>(() => {
+    try {
+        return JSON.parse(localStorage.getItem('vmind-sample-mode') || 'false');
+    } catch {
+        return false;
+    }
+  });
+
 
   useEffect(() => {
     // Theme management
-    const theme = settings?.theme || (localStorage.getItem('vmind-theme') as Theme) || 'dark';
-    const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    if (settings?.theme) {
-        localStorage.setItem('vmind-theme', settings.theme);
+    if (settings) {
+        const root = window.document.documentElement;
+        if (settings.theme === 'dark') {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
     }
   }, [settings?.theme]);
 
@@ -126,9 +136,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [settings, updateSettings]);
 
-  useEffect(() => {
-    fetchData();
+  const toggleSampleData = useCallback(async (active: boolean) => {
+    setIsSampleDataActive(active);
+    localStorage.setItem('vmind-sample-mode', JSON.stringify(active));
+    await dataService.setSampleMode(active);
+    await fetchData();
   }, [fetchData]);
+
+
+  useEffect(() => {
+    const initializeApp = async () => {
+        await dataService.setSampleMode(isSampleDataActive);
+        await fetchData();
+        setIsInitialized(true);
+    };
+    initializeApp();
+  }, []);
+
 
   const contextValue = useMemo(() => ({
     tables,
@@ -139,13 +163,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     settings,
     backupHistory,
     session,
-    loading,
+    loading: loading || !isInitialized,
+    isSampleDataActive,
     fetchData,
     toggleTheme,
     updateSettings,
     signInWithGoogle,
     signOut,
-  }), [tables, globalStats, relations, rewardEvents, studySessions, settings, backupHistory, session, loading, fetchData, toggleTheme, updateSettings]);
+    toggleSampleData,
+  }), [tables, globalStats, relations, rewardEvents, studySessions, settings, backupHistory, session, loading, isInitialized, isSampleDataActive, fetchData, toggleTheme, updateSettings, toggleSampleData]);
 
   return (
     <DataContext.Provider value={contextValue}>

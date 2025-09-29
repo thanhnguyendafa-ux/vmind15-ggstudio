@@ -1,6 +1,9 @@
 import { VocabTable, VocabRow, Relation, StudyMode, GlobalStats, VocabRowStats, StudyConfig, StudySession, WordProgress, ColumnDef, VmindSettings, RewardEvent, BackupRecord } from '../types';
 import { FIBONACCI_MILESTONES } from '../constants';
 
+const USER_DATA_KEY = 'vmind-user-data';
+let isSampleMode = false;
+
 // --- In-memory database simulation ---
 let mockTables: VocabTable[];
 let mockRelations: Relation[];
@@ -9,6 +12,71 @@ let mockStudySessions: StudySession[];
 let mockSettings: VmindSettings;
 let mockRewardEvents: RewardEvent[];
 let mockBackupRecords: BackupRecord[];
+
+const persistState = () => {
+    if (isSampleMode) return;
+    try {
+        const { theme, ...persistableSettings } = mockSettings;
+        const state = {
+            tables: mockTables,
+            relations: mockRelations,
+            globalStats: mockGlobalStats,
+            studySessions: mockStudySessions,
+            settings: persistableSettings,
+            rewardEvents: mockRewardEvents,
+            backupRecords: mockBackupRecords
+        };
+        localStorage.setItem(USER_DATA_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.error("Failed to save user data", e);
+    }
+};
+
+const defaultSettings: VmindSettings = {
+    theme: 'light',
+    quitPenaltyEnabled: true,
+    autoBackup: {
+        enabled: true,
+        interval: '6h',
+        keep: 5,
+    },
+    conflictPolicy: 'merge',
+};
+
+const loadState = () => {
+    try {
+        const storedState = localStorage.getItem(USER_DATA_KEY);
+        if (storedState) {
+            const state = JSON.parse(storedState);
+            mockTables = state.tables || [];
+            mockRelations = state.relations || [];
+            mockGlobalStats = state.globalStats || { xp: 0, inQueueReal: 0, quitQueueReal: 0 };
+            mockStudySessions = state.studySessions || [];
+            mockSettings = { ...defaultSettings, ...(state.settings || {}) };
+            mockRewardEvents = state.rewardEvents || [];
+            mockBackupRecords = state.backupRecords || [];
+        } else {
+            // New user, initialize with empty state
+            mockTables = [];
+            mockRelations = [];
+            mockGlobalStats = { xp: 0, inQueueReal: 0, quitQueueReal: 0 };
+            mockStudySessions = [];
+            mockSettings = defaultSettings;
+            mockRewardEvents = [];
+            mockBackupRecords = [];
+        }
+    } catch (e) {
+        console.error("Failed to load user data", e);
+        // Initialize with empty state on error
+        mockTables = [];
+        mockRelations = [];
+        mockGlobalStats = { xp: 0, inQueueReal: 0, quitQueueReal: 0 };
+        mockStudySessions = [];
+        mockSettings = defaultSettings;
+        mockRewardEvents = [];
+        mockBackupRecords = [];
+    }
+};
 
 const recalculateStats = (stats: Partial<VocabRowStats>): VocabRowStats => {
     const passed1 = stats.Passed1 || 0;
@@ -225,8 +293,14 @@ const initializeData = () => {
     ];
 };
 
-// Initialize data on first import
-initializeData();
+const setSampleMode = async (active: boolean) => {
+    isSampleMode = active;
+    if (active) {
+        initializeData();
+    } else {
+        loadState();
+    }
+};
 
 type ConflictResolutionStrategy = 'merge' | 'overwrite' | 'addNewOnly';
 
@@ -269,6 +343,7 @@ const calculatePriorityScore = (row: VocabRow, maxInQueueInTable: number): numbe
 };
 
 export const dataService = {
+  setSampleMode,
   getTables: async (): Promise<VocabTable[]> => {
     await new Promise(res => setTimeout(res, 100));
     return mockTables;
@@ -296,6 +371,7 @@ export const dataService = {
   updateSettings: async (newSettings: Partial<VmindSettings>): Promise<VmindSettings> => {
     await new Promise(res => setTimeout(res, 50));
     mockSettings = { ...mockSettings, ...newSettings };
+    persistState();
     return mockSettings;
   },
   getRewardEvents: async (): Promise<RewardEvent[]> => {
@@ -320,6 +396,7 @@ export const dataService = {
     mockBackupRecords = mockBackupRecords
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 5);
+    persistState();
   },
   getAllDataForBackup: async (): Promise<object> => {
     await new Promise(res => setTimeout(res, 100));
@@ -340,6 +417,7 @@ export const dataService = {
         createdAt: new Date().toISOString(),
     };
     mockStudySessions.push(newSession);
+    persistState();
   },
   updateStatsOnCompletion: async function(config: StudyConfig, sessionProgress: Record<string, WordProgress>): Promise<void> {
     await new Promise(res => setTimeout(res, 200));
@@ -409,6 +487,7 @@ export const dataService = {
         modes: config.modes,
         wordCount: config.words.length,
     });
+    persistState();
   },
 
   updateStatsOnQuit: async function(config: StudyConfig, wordProgress: Record<string, WordProgress>): Promise<void> {
@@ -449,6 +528,7 @@ export const dataService = {
         modes: config.modes,
         wordCount: config.words.length,
     });
+    persistState();
   },
 
   createTable: async (name: string, columns: ColumnDef[]): Promise<VocabTable> => {
@@ -460,6 +540,7 @@ export const dataService = {
         rows: [],
     };
     mockTables.push(newTable);
+    persistState();
     return newTable;
   },
 
@@ -474,6 +555,7 @@ export const dataService = {
         modes,
     };
     mockRelations.push(newRelation);
+    persistState();
     return newRelation;
   },
 
@@ -497,7 +579,7 @@ export const dataService = {
       }
       return t;
     });
-
+    persistState();
     return newRow;
   },
   
@@ -534,7 +616,7 @@ export const dataService = {
         }
         return t;
     });
-
+    persistState();
     if (!updatedRow) {
       throw new Error(`Word with id ${wordId} not found.`);
     }
@@ -555,6 +637,7 @@ export const dataService = {
       }
       return table;
     });
+    persistState();
   },
 
   addColumn: async (tableId: string, newColumn: ColumnDef): Promise<void> => {
@@ -576,6 +659,7 @@ export const dataService = {
       }
       return table;
     });
+    persistState();
   },
 
   removeColumn: async (tableId: string, columnName: string): Promise<void> => {
@@ -601,6 +685,7 @@ export const dataService = {
        }
        return table;
      });
+     persistState();
   },
 
   renameColumn: async (tableId: string, oldName: string, newName: string): Promise<void> => {
@@ -631,6 +716,7 @@ export const dataService = {
       }
       return table;
     });
+    persistState();
   },
   
   resetWordStats: async (tableId: string, wordId: string): Promise<void> => {
@@ -656,6 +742,7 @@ export const dataService = {
       }
       return table;
     });
+    persistState();
   },
 
   bulkTagWords: async (tableId: string, wordIds: string[], tagsToAdd: string[]): Promise<void> => {
@@ -676,6 +763,7 @@ export const dataService = {
       }
       return table;
     });
+    persistState();
   },
 
   importData: async (tableId: string, rows: Array<Record<string, string>>, strategy: ConflictResolutionStrategy): Promise<void> => {
@@ -714,6 +802,7 @@ export const dataService = {
             table.rows.push(createNewRow(tableId, keyword, newRowData));
         }
     });
+    persistState();
   },
   updateFlashcardStatus: async (tableId: string, wordId: string, status: 'Hard' | 'Good' | 'Easy'): Promise<void> => {
     await new Promise(res => setTimeout(res, 50));
@@ -724,6 +813,7 @@ export const dataService = {
     } else {
         console.warn(`Could not find word ${wordId} in table ${tableId} to update flashcard status.`);
     }
+    persistState();
   },
   calculatePriorityScore,
 };

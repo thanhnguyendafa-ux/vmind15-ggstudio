@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { useData } from '../hooks/useData';
 import { Link, useNavigate } from 'react-router-dom';
 import CreateTableModal from '../components/CreateTableModal';
 import { dataService } from '../services/dataService';
 import { ColumnDef } from '../types';
+import { XIcon, SearchIcon } from '../components/Icons';
 
 const TablesPage: React.FC = () => {
     const { tables, relations, loading, fetchData } = useData();
@@ -32,15 +32,27 @@ const TablesPage: React.FC = () => {
         <div className="p-4 sm:p-6">
             <h1 className="text-3xl font-bold mb-6 text-text-primary dark:text-slate-200">My Tables</h1>
 
-            <div className="mb-6">
+            <div className="mb-6 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <SearchIcon className="h-5 w-5 text-text-secondary dark:text-slate-400" />
+                </div>
                 <input
                     type="text"
                     placeholder="Search tables..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-secondary dark:bg-slate-800 p-3 rounded-lg border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-accent dark:focus:ring-sky-500 focus:outline-none transition-shadow"
+                    className="w-full bg-secondary dark:bg-slate-800 p-3 pl-10 pr-10 rounded-lg border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-accent dark:focus:ring-sky-500 focus:outline-none transition-shadow"
                     aria-label="Search for a table by name"
                 />
+                {searchQuery && (
+                    <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-slate-200 transition-colors"
+                        aria-label="Clear search"
+                    >
+                        <XIcon className="h-5 w-5" />
+                    </button>
+                )}
             </div>
 
             {loading ? (

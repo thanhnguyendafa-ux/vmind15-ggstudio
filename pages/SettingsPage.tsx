@@ -55,7 +55,9 @@ const SettingsPage: React.FC = () => {
         tables,
         session,
         signInWithGoogle,
-        signOut 
+        signOut,
+        isSampleDataActive,
+        toggleSampleData
     } = useData();
     const theme = settings?.theme || 'dark';
     const [isBackingUp, setIsBackingUp] = useState<false | 'json' | 'csv'>(false);
@@ -216,6 +218,20 @@ const SettingsPage: React.FC = () => {
                             </button>
                         </div>
                     )}
+                </div>
+                <div className="bg-secondary dark:bg-slate-800 p-4 rounded-lg">
+                    <h2 className="text-lg font-bold text-accent dark:text-sky-400 mb-2">Data Management</h2>
+                    <div className="flex items-center justify-between">
+                        <p className="font-semibold text-text-primary dark:text-slate-200">Load Sample Data</p>
+                        <SettingToggle
+                            checked={isSampleDataActive}
+                            onChange={() => toggleSampleData(!isSampleDataActive)}
+                            label="Load Sample Data"
+                        />
+                    </div>
+                     <p className="text-xs text-text-secondary dark:text-slate-500 mt-2">
+                        Explore app features with pre-loaded data. Any changes made to sample data will not be saved.
+                    </p>
                 </div>
                  <div className="bg-secondary dark:bg-slate-800 p-4 rounded-lg space-y-4">
                     <div className="flex items-center gap-2">

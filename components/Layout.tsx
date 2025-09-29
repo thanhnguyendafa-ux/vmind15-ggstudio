@@ -2,6 +2,7 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { HomeIcon, TableIcon, BrainIcon, LayersIcon, BarChartIcon, TrophyIcon, SettingsIcon } from './Icons';
+import { useData } from '../hooks/useData';
 
 const navItems = [
   { path: '/', label: 'Home', icon: HomeIcon },
@@ -15,9 +16,18 @@ const navItems = [
 
 const Layout: React.FC = () => {
     const location = useLocation();
+    const { isSampleDataActive, toggleSampleData } = useData();
 
     return (
         <div className="min-h-screen bg-primary dark:bg-slate-900 flex flex-col">
+            {isSampleDataActive && (
+                 <div className="bg-yellow-500 dark:bg-yellow-600 text-black dark:text-white text-center py-2 px-4 text-sm font-semibold">
+                    You are viewing sample data. Any changes will not be saved. 
+                    <button onClick={() => toggleSampleData(false)} className="underline ml-2 font-bold hover:text-slate-800">
+                        [Return to my data]
+                    </button>
+                </div>
+            )}
             <main className="flex-grow pb-20">
                 <Outlet />
             </main>
