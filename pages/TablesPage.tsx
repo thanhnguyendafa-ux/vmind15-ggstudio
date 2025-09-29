@@ -57,6 +57,11 @@ const TablesPage: React.FC = () => {
 
             {loading ? (
                 <p className="dark:text-slate-300">Loading tables...</p>
+            ) : tables.length === 0 ? (
+                 <div className="text-center text-text-secondary dark:text-slate-400 mt-8">
+                    <p className="text-lg">No tables found.</p>
+                    <p className="mt-2">Click the button below to create your first table.</p>
+                </div>
             ) : (
                 <div className="space-y-4">
                     {filteredTables.length > 0 ? (
@@ -72,7 +77,9 @@ const TablesPage: React.FC = () => {
                             )
                         })
                     ) : (
-                        <p className="text-center text-text-secondary dark:text-slate-400 mt-8">No tables found matching your search.</p>
+                        <p className="text-center text-text-secondary dark:text-slate-400 mt-8">
+                            No tables found matching your search for "{searchQuery}".
+                        </p>
                     )}
                 </div>
             )}

@@ -12,44 +12,79 @@
         theme: {
           extend: {
             colors: {
-              'primary': '#ffffff',
-              'secondary': '#f1f5f9', // slate-100
-              'accent': '#1d4ed8', // blue-700
-              'text-primary': '#0f172a', // slate-900
-              'text-secondary': '#64748b', // slate-500
+              'primary': '#f7f7f7',
+              'secondary': '#ffffff',
+              'accent': '#58cc02',
+              'accent-darker': '#4aa002',
+              'success': '#58cc02',
+              'danger': '#ff4b4b',
+              'text-primary': '#4b4b4b',
+              'text-secondary': '#777777',
+              'sky-400': '#38bdf8', // Keep for compatibility
             },
+            borderRadius: {
+              'lg': '0.75rem',
+              'xl': '1rem',
+            },
+            boxShadow: {
+              'solid-accent': '0 4px 0 0 #4aa002',
+              'solid-slate': '0 4px 0 0 #d1d5db',
+            }
           },
         },
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
 
       body {
-        font-family: 'Inter', sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
-        background-color: #f1f5f9; /* slate-100 */
-        padding: 1rem;
-        box-sizing: border-box;
+        font-family: 'Nunito', sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
+        background-color: #f7f7f7; /* primary */
+        padding: 0;
+        font-size: 16px;
       }
 
       .dark body {
-        background-color: #020617; /* slate-950 */
+        background-color: #121212;
       }
 
       #root {
-        max-width: 1280px;
+        max-width: 1280px; /* 7xl */
         margin: 0 auto;
-        background-color: #ffffff;
-        color: #0f172a;
-        min-height: calc(100vh - 2rem);
-        border-radius: 0.5rem;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        overflow: hidden;
+        padding: 1rem;
+        color: #4b4b4b;
+        min-height: 100vh;
       }
       
       .dark #root {
-        background-color: #0f172a; /* slate-900 */
         color: #f8fafc; /* slate-50 */
+      }
+
+      .v-modal-container {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+      .v-modal-content {
+        animation: scaleIn 0.3s ease-out forwards;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes scaleIn {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+
+      .celebrate-animation {
+        animation: celebrate-pop 0.8s ease-out forwards;
+      }
+
+      @keyframes celebrate-pop {
+        0% { transform: scale(0.5); opacity: 0; }
+        60% { transform: scale(1.1); opacity: 1; }
+        80% { transform: scale(0.95); }
+        100% { transform: scale(1); opacity: 1; }
       }
     </style>
   <script type="importmap">

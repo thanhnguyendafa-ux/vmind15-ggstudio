@@ -1,4 +1,4 @@
-import { VocabTable, VocabRow, Relation, StudyMode, GlobalStats, VocabRowStats, StudyConfig, StudySession, WordProgress, ColumnDef, VmindSettings, RewardEvent, BackupRecord } from '../types';
+import { VocabTable, VocabRow, Relation, StudyMode, GlobalStats, VocabRowStats, StudyConfig, StudySession, WordProgress, ColumnDef, VmindSettings, RewardEvent, BackupRecord, StudyPreset } from '../types';
 import { FIBONACCI_MILESTONES } from '../constants';
 
 const USER_DATA_KEY = 'vmind-user-data';
@@ -12,6 +12,7 @@ let mockStudySessions: StudySession[];
 let mockSettings: VmindSettings;
 let mockRewardEvents: RewardEvent[];
 let mockBackupRecords: BackupRecord[];
+let mockStudyPresets: StudyPreset[];
 
 const persistState = () => {
     if (isSampleMode) return;
@@ -24,7 +25,8 @@ const persistState = () => {
             studySessions: mockStudySessions,
             settings: persistableSettings,
             rewardEvents: mockRewardEvents,
-            backupRecords: mockBackupRecords
+            backupRecords: mockBackupRecords,
+            studyPresets: mockStudyPresets
         };
         localStorage.setItem(USER_DATA_KEY, JSON.stringify(state));
     } catch (e) {
@@ -55,6 +57,7 @@ const loadState = () => {
             mockSettings = { ...defaultSettings, ...(state.settings || {}) };
             mockRewardEvents = state.rewardEvents || [];
             mockBackupRecords = state.backupRecords || [];
+            mockStudyPresets = state.studyPresets || [];
         } else {
             // New user, initialize with empty state
             mockTables = [];
@@ -64,6 +67,7 @@ const loadState = () => {
             mockSettings = defaultSettings;
             mockRewardEvents = [];
             mockBackupRecords = [];
+            mockStudyPresets = [];
         }
     } catch (e) {
         console.error("Failed to load user data", e);
@@ -75,6 +79,7 @@ const loadState = () => {
         mockSettings = defaultSettings;
         mockRewardEvents = [];
         mockBackupRecords = [];
+        mockStudyPresets = [];
     }
 };
 
@@ -152,20 +157,42 @@ const initializeData = () => {
             stats: stats,
         };
     };
+    
+    // --- START OF SIMULATION DATA ---
+    // This section modifies the initial data to reflect the results of a simulated user session for testing purposes.
+    const simulationDate = new Date();
+    const simulationDateISO = simulationDate.toISOString();
+
+    // Stats for 2 words answered wrong once, then correct twice.
+    const c2_failedOnceStats = recalculateStats({
+        Passed1: 1, Passed2: 1, Failed: 1, InQueue: 1, QuitQueue: false, LastPracticeDate: simulationDateISO
+    });
+    // Stats for 3 words answered correctly twice.
+    const c2_correctStats = recalculateStats({
+        Passed1: 1, Passed2: 1, Failed: 0, InQueue: 1, QuitQueue: false, LastPracticeDate: simulationDateISO
+    });
+    
+    const createSimulatedRow = (tableId: string, keyword: string, data: Record<string, string>, stats: VocabRowStats): VocabRow => ({
+        id: `${tableId}-${keyword}`, tableId, keyword, data, tags: [], stats
+    });
+    // --- END OF SIMULATION DATA ---
+
 
     const c2Rows = [
         createRowWithRandomStats('eng-c2', 'Ubiquitous', { 'Definition': 'Present, appearing, or found everywhere.', 'Synonyms': 'Omnipresent, Pervasive', 'Antonyms': 'Rare, Scarce', 'Example Sentence': 'His ubiquitous influence was felt by all the family.', 'Visual Cue': 'https://source.unsplash.com/random/150x150?everywhere' }),
         createRowWithRandomStats('eng-c2', 'Ephemeral', { 'Definition': 'Lasting for a very short time.', 'Synonyms': 'Transitory, Fleeting', 'Antonyms': 'Permanent, Enduring', 'Example Sentence': 'The beauty of the cherry blossom is ephemeral.', 'Visual Cue': 'https://source.unsplash.com/random/150x150?cherry-blossom' }),
         createRowWithRandomStats('eng-c2', 'Pulchritudinous', { 'Definition': 'Having great physical beauty.', 'Synonyms': 'Beautiful, Gorgeous', 'Antonyms': 'Ugly, Hideous', 'Example Sentence': 'She was a pulchritudinous young woman.', 'Visual Cue': 'https://source.unsplash.com/random/150x150?beauty' }),
         createRowWithRandomStats('eng-c2', 'Mellifluous', { 'Definition': 'A sound that is sweet and smooth, pleasing to hear.', 'Synonyms': 'Euphonious, Dulcet', 'Antonyms': 'Cacophonous, Harsh', 'Example Sentence': 'Her mellifluous voice enchanted the audience.', 'Visual Cue': 'https://source.unsplash.com/random/150x150?sound-wave' }),
-        createRowWithRandomStats('eng-c2', 'Perspicacious', { 'Definition': 'Having a ready insight into and understanding of things.', 'Synonyms': 'Astute, Shrewd', 'Antonyms': 'Dull, Obtuse', 'Example Sentence': 'The perspicacious detective solved the case with ease.', 'Visual Cue': '' }),
-        createRowWithRandomStats('eng-c2', 'Serendipity', { 'Definition': 'The occurrence of events by chance in a happy or beneficial way.', 'Synonyms': 'Fluke, Providence', 'Antonyms': 'Mishap, Misfortune', 'Example Sentence': 'Finding a rare book in a dusty corner was a moment of serendipity.', 'Visual Cue': '' }),
-        createRowWithRandomStats('eng-c2', 'Anachronism', { 'Definition': 'A thing belonging to a period other than that in which it exists.', 'Synonyms': 'Misplacement, Solecism', 'Antonyms': 'Timeliness', 'Example Sentence': 'A knight using a smartphone would be an anachronism.', 'Visual Cue': '' }),
-        createRowWithRandomStats('eng-c2', 'Equanimity', { 'Definition': 'Mental calmness, composure, and evenness of temper, especially in a difficult situation.', 'Synonyms': 'Composure, Sangfroid', 'Antonyms': 'Anxiety, Agitation', 'Example Sentence': 'He faced the crisis with equanimity.', 'Visual Cue': '' }),
-        createRowWithRandomStats('eng-c2', 'Idiosyncrasy', { 'Definition': 'A mode of behavior or way of thought peculiar to an individual.', 'Synonyms': 'Peculiarity, Quirk', 'Antonyms': 'Normality, Conformity', 'Example Sentence': 'Her habit of talking to plants was a charming idiosyncrasy.', 'Visual Cue': '' }),
-        createRowWithRandomStats('eng-c2', 'Laconic', { 'Definition': 'Using very few words.', 'Synonyms': 'Brief, Terse', 'Antonyms': 'Verbose, Loquacious', 'Example Sentence': 'His laconic reply suggested a lack of interest.', 'Visual Cue': '' }),
-        createRowWithRandomStats('eng-c2', 'Proclivity', { 'Definition': 'A tendency to choose or do something regularly.', 'Synonyms': 'Penchant, Predisposition', 'Antonyms': 'Aversion, Disinclination', 'Example Sentence': 'He has a proclivity for making friends easily.', 'Visual Cue': '' }),
-        createRowWithRandomStats('eng-c2', 'Sycophant', { 'Definition': 'A person who acts obsequiously toward someone important in order to gain advantage.', 'Synonyms': 'Flatterer, Toady', 'Antonyms': 'Rebel, Leader', 'Example Sentence': 'The king was surrounded by sycophants who praised his every word.', 'Visual Cue': '' }),
+        createRowWithRandomStats('eng-c2', 'Perspicacious', { 'Definition': 'Having a ready insight into and understanding of things.', 'Synonyms': 'Astute, Shrewd', 'Antonyms': 'Dull, Obtuse', 'Example Sentence': 'The perspicacious detective solved the case with ease.', 'Visual Cue': 'https://source.unsplash.com/random/150x150?insight' }),
+        createRowWithRandomStats('eng-c2', 'Serendipity', { 'Definition': 'The occurrence of events by chance in a happy or beneficial way.', 'Synonyms': 'Fluke, Providence', 'Antonyms': 'Mishap, Misfortune', 'Example Sentence': 'Finding a rare book in a dusty corner was a moment of serendipity.', 'Visual Cue': 'https://source.unsplash.com/random/150x150?chance' }),
+        createRowWithRandomStats('eng-c2', 'Anachronism', { 'Definition': 'A thing belonging to a period other than that in which it exists.', 'Synonyms': 'Misplacement, Solecism', 'Antonyms': 'Timeliness', 'Example Sentence': 'A knight using a smartphone would be an anachronism.', 'Visual Cue': 'https://source.unsplash.com/random/150x150?time-travel' }),
+        // --- SIMULATED DATA ---
+        createSimulatedRow('eng-c2', 'Equanimity', { 'Definition': 'Mental calmness, composure, and evenness of temper, especially in a difficult situation.', 'Synonyms': 'Composure, Sangfroid', 'Antonyms': 'Anxiety, Agitation', 'Example Sentence': 'He faced the crisis with equanimity.', 'Visual Cue': '' }, c2_failedOnceStats),
+        createSimulatedRow('eng-c2', 'Idiosyncrasy', { 'Definition': 'A mode of behavior or way of thought peculiar to an individual.', 'Synonyms': 'Peculiarity, Quirk', 'Antonyms': 'Normality, Conformity', 'Example Sentence': 'Her habit of talking to plants was a charming idiosyncrasy.', 'Visual Cue': '' }, c2_failedOnceStats),
+        createSimulatedRow('eng-c2', 'Laconic', { 'Definition': 'Using very few words.', 'Synonyms': 'Brief, Terse', 'Antonyms': 'Verbose, Loquacious', 'Example Sentence': 'His laconic reply suggested a lack of interest.', 'Visual Cue': '' }, c2_correctStats),
+        createSimulatedRow('eng-c2', 'Proclivity', { 'Definition': 'A tendency to choose or do something regularly.', 'Synonyms': 'Penchant, Predisposition', 'Antonyms': 'Aversion, Disinclination', 'Example Sentence': 'He has a proclivity for making friends easily.', 'Visual Cue': '' }, c2_correctStats),
+        createSimulatedRow('eng-c2', 'Sycophant', { 'Definition': 'A person who acts obsequiously toward someone important in order to gain advantage.', 'Synonyms': 'Flatterer, Toady', 'Antonyms': 'Rebel, Leader', 'Example Sentence': 'The king was surrounded by sycophants who praised his every word.', 'Visual Cue': '' }, c2_correctStats),
+        // --- END SIMULATED DATA ---
         createRowWithRandomStats('eng-c2', 'Vicissitude', { 'Definition': 'A change of circumstances or fortune, typically one that is unwelcome or unpleasant.', 'Synonyms': 'Fluctuation, Upheaval', 'Antonyms': 'Stability, Constancy', 'Example Sentence': 'The vicissitudes of life taught him resilience.', 'Visual Cue': '' }),
         createRowWithRandomStats('eng-c2', 'Zephyr', { 'Definition': 'A soft gentle breeze.', 'Synonyms': 'Breeze, Gust', 'Antonyms': 'Gale, Tempest', 'Example Sentence': 'A cool zephyr rustled the leaves in the trees.', 'Visual Cue': '' }),
         createRowWithRandomStats('eng-c2', 'Quixotic', { 'Definition': 'Exceedingly idealistic; unrealistic and impractical.', 'Synonyms': 'Idealistic, Visionary', 'Antonyms': 'Practical, Realistic', 'Example Sentence': 'His quixotic quest to end world hunger was admirable but ultimately futile.', 'Visual Cue': '' }),
@@ -206,6 +233,11 @@ const initializeData = () => {
         createRowWithRandomStats('hsk1', '说', { 'Pinyin': 'shuō', 'Definition': 'To speak, to say', 'Example Sentence': '你会说汉语吗？', 'Example Translation': 'Can you speak Chinese?', 'Note': '' }),
         createRowWithRandomStats('hsk1', '再见', { 'Pinyin': 'zàijiàn', 'Definition': 'Goodbye', 'Example Sentence': '老师，再见！', 'Example Translation': 'Goodbye, teacher!', 'Note': '' }),
     ];
+    
+    // --- SIMULATED DATA ---
+    // Mark the first 5 HSK1 words as having been in a quit session
+    hsk1Rows.slice(0, 5).forEach(row => row.stats.QuitQueue = true);
+    // --- END SIMULATED DATA ---
 
     mockTables = [
         { id: 'eng-c2', name: 'English C2', columns: [
@@ -240,13 +272,35 @@ const initializeData = () => {
         { id: 'rel6', tableId: 'hsk1', name: 'Translation -> Word', modes: [StudyMode.MCQ], questionCols: ['Example Translation'], answerCols: ['keyword'] },
     ];
 
+    // --- SIMULATED DATA ---
+    // Update global stats based on simulation
     mockGlobalStats = {
-        xp: 1337,
-        inQueueReal: 42,
-        quitQueueReal: 5,
+        xp: 1407, // Initial 1337 + 100 (C2 session) - 30 (HSK1 quit penalty)
+        inQueueReal: 43, // Initial 42 + 1 (C2 session)
+        quitQueueReal: 6, // Initial 5 + 1 (HSK1 quit)
     };
-
-    mockStudySessions = [
+    
+    // Add new sessions to the beginning of the history
+    // FIX: Explicitly type the array as StudySession[] to prevent TypeScript from widening the `status` property to `string`.
+    const studySessionsData: StudySession[] = [
+        {
+            id: new Date(simulationDate.getTime() + 1000).toISOString(),
+            createdAt: new Date(simulationDate.getTime() + 1000).toISOString(),
+            status: 'quit',
+            tableIds: ['hsk1'],
+            tableNames: ['Mandarin HSK1'],
+            modes: [StudyMode.MCQ],
+            wordCount: 5,
+        },
+        {
+            id: simulationDateISO,
+            createdAt: simulationDateISO,
+            status: 'completed',
+            tableIds: ['eng-c2'],
+            tableNames: ['English C2'],
+            modes: [StudyMode.MCQ, StudyMode.Typing],
+            wordCount: 5,
+        },
         {
             id: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
             createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
@@ -266,9 +320,10 @@ const initializeData = () => {
             wordCount: 15,
         }
     ];
+    mockStudySessions = studySessionsData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     mockSettings = {
-        theme: 'dark',
+        theme: 'light',
         quitPenaltyEnabled: true,
         autoBackup: {
             enabled: true,
@@ -277,12 +332,18 @@ const initializeData = () => {
         },
         conflictPolicy: 'merge',
     };
-
-    mockRewardEvents = [
+    
+    // Add new reward events to the beginning of the history
+    // FIX: Explicitly type the array as RewardEvent[] to prevent TypeScript from widening the `type` property to `string`.
+    const rewardEventsData: RewardEvent[] = [
+        { id: 'evt-sim-2', timestamp: new Date(simulationDate.getTime() + 1000).toISOString(), type: 'session_quit', description: 'Quit session with Mandarin HSK1', xpChange: -30 },
+        { id: 'evt-sim-1', timestamp: simulationDateISO, type: 'session_complete', description: 'Completed session with English C2', xpChange: 100 },
         { id: 'evt3', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), type: 'session_quit', description: 'Quit session with English B1-B2, Mandarin HSK1', xpChange: -30 },
         { id: 'evt2', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), type: 'milestone_unlocked', description: 'Unlocked "Celestial" badge!', xpChange: 0 },
         { id: 'evt1', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), type: 'session_complete', description: 'Completed English C2 session', xpChange: 120 },
     ];
+    mockRewardEvents = rewardEventsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    // --- END SIMULATED DATA ---
 
     mockBackupRecords = [
         { id: 'bak5', timestamp: new Date(Date.now() - 1 * 6 * 60 * 60 * 1000).toISOString(), type: 'auto', format: 'json', fileRef: 'backup_auto_1.json' },
@@ -290,6 +351,39 @@ const initializeData = () => {
         { id: 'bak3', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), type: 'manual', format: 'csv', fileRef: 'backup_manual_1.csv' },
         { id: 'bak2', timestamp: new Date(Date.now() - 3 * 6 * 60 * 60 * 1000).toISOString(), type: 'auto', format: 'json', fileRef: 'backup_auto_3.json' },
         { id: 'bak1', timestamp: new Date(Date.now() - 4 * 6 * 60 * 60 * 1000).toISOString(), type: 'auto', format: 'json', fileRef: 'backup_auto_4.json' },
+    ];
+
+    mockStudyPresets = [
+        {
+            id: 'preset1',
+            name: 'Quick C2 Vocab Drill',
+            tableIds: ['eng-c2'],
+            modes: [StudyMode.MCQ],
+            relationIds: ['rel1'],
+            useRandomRelation: false,
+            wordCount: 10,
+            tableFocus: {
+                'eng-c2': {
+                    filterLayers: [],
+                    sortLayers: [{ column: 'RankPoint', direction: 'asc' }],
+                }
+            }
+        },
+        {
+            id: 'preset2',
+            name: 'HSK1 Typing Practice',
+            tableIds: ['hsk1'],
+            modes: [StudyMode.Typing],
+            relationIds: ['rel5'],
+            useRandomRelation: false,
+            wordCount: 15,
+            tableFocus: {
+                'hsk1': {
+                    filterLayers: [],
+                    sortLayers: [{ column: 'LastPracticeDate', direction: 'asc' }],
+                }
+            }
+        }
     ];
 };
 
@@ -407,6 +501,7 @@ export const dataService = {
       studySessions: mockStudySessions,
       settings: mockSettings,
       rewardEvents: mockRewardEvents,
+      studyPresets: mockStudyPresets,
     };
   },
   saveStudySession: async function(sessionData: Omit<StudySession, 'id' | 'createdAt'>): Promise<void> {
@@ -438,6 +533,11 @@ export const dataService = {
         if(progress.status === 'pass2') {
             wordsMastered++;
             currentStats.Passed2 += 1;
+            // The logic should also increment Passed1 on the first success.
+            // This is a more accurate reflection of the blueplan's intent.
+            if (progress.newPasses > 0 && currentStats.Passed1 === (row.stats.Passed1 || 0)) {
+                currentStats.Passed1 += 1;
+            }
             currentStats.InQueue += 1;
             currentStats.QuitQueue = false; // Reset quit flag on completion
         } else if (progress.status === 'pass1') {
@@ -813,6 +913,25 @@ export const dataService = {
     } else {
         console.warn(`Could not find word ${wordId} in table ${tableId} to update flashcard status.`);
     }
+    persistState();
+  },
+  getStudyPresets: async (): Promise<StudyPreset[]> => {
+    await new Promise(res => setTimeout(res, 100));
+    return mockStudyPresets;
+  },
+  saveStudyPreset: async (preset: Omit<StudyPreset, 'id'>): Promise<StudyPreset> => {
+    await new Promise(res => setTimeout(res, 200));
+    const newPreset: StudyPreset = {
+        ...preset,
+        id: `preset-${Date.now()}`
+    };
+    mockStudyPresets.push(newPreset);
+    persistState();
+    return newPreset;
+  },
+  deleteStudyPreset: async (presetId: string): Promise<void> => {
+    await new Promise(res => setTimeout(res, 200));
+    mockStudyPresets = mockStudyPresets.filter(p => p.id !== presetId);
     persistState();
   },
   calculatePriorityScore,

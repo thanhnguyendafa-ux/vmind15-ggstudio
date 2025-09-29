@@ -177,7 +177,7 @@ const SettingsPage: React.FC = () => {
     const autoBackupKeepOptions = [3, 5, 10];
 
     return (
-        <div className="p-4 sm:p-6 max-w-2xl mx-auto">
+        <div className="p-4 sm:p-6">
             <h1 className="text-3xl font-bold mb-6 text-text-primary dark:text-slate-200">Settings</h1>
             <div className="space-y-6">
                 <div className="bg-secondary dark:bg-slate-800 p-4 rounded-lg">

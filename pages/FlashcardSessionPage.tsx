@@ -4,12 +4,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { VocabRow, Relation, VocabRowStats } from '../types';
 import { useData } from '../hooks/useData';
 import { dataService } from '../services/dataService';
+import { CheckCircleIcon, XCircleIcon } from '../components/Icons';
 
 type FlashcardStatus = VocabRowStats['flashcardStatus'];
 interface DeckItem {
     word: VocabRow;
     relation: Relation;
-    status: FlashcardStatus;
 }
 
 const getDisplayValue = (word: VocabRow, col: string) => {
@@ -18,6 +18,14 @@ const getDisplayValue = (word: VocabRow, col: string) => {
 };
 
 const Flashcard: React.FC<{ item: DeckItem, isFlipped: boolean, onFlip: () => void }> = ({ item, isFlipped, onFlip }) => {
+    const status = item.word.stats.flashcardStatus;
+    const statusColor = useMemo(() => ({
+        'Hard': 'bg-red-500',
+        'Good': 'bg-yellow-500',
+        'Easy': 'bg-green-500',
+        'None': 'bg-slate-500'
+    }[status]), [status]);
+
     const question = useMemo(() => (
         item.relation.questionCols.map(col => (
             <div key={col}>
@@ -46,6 +54,8 @@ const Flashcard: React.FC<{ item: DeckItem, isFlipped: boolean, onFlip: () => vo
                 className="absolute w-full h-full bg-secondary rounded-xl flex flex-col items-center justify-center p-6"
                 style={{ backfaceVisibility: 'hidden' }}
             >
+                {/* Card Status Indicator */}
+                <div className={`absolute top-4 left-4 w-4 h-4 rounded-full ${statusColor}`} title={`Status: ${status}`}></div>
                 <p className="text-sm text-text-secondary mb-2">Question</p>
                 <div className="text-2xl font-bold text-text-primary">{question}</div>
             </div>
@@ -71,6 +81,8 @@ const FlashcardSessionPage: React.FC = () => {
     const [isFlipped, setIsFlipped] = useState(false);
     const [initialDeckSize, setInitialDeckSize] = useState(0);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [deckStats, setDeckStats] = useState({ Hard: 0, Good: 0, Easy: 0, None: 0 });
+    const [feedback, setFeedback] = useState<{ show: boolean; correct: boolean; message: string } | null>(null);
 
     useEffect(() => {
         if (!words || !relationIds) {
@@ -84,97 +96,100 @@ const FlashcardSessionPage: React.FC = () => {
             const applicableRelations = sessionRelations.filter(r => r.tableId === word.tableId);
             if(applicableRelations.length === 0) return null;
             const relation = applicableRelations[Math.floor(Math.random() * applicableRelations.length)];
-            return { word, relation, status: word.stats.flashcardStatus || 'None' };
-        }).filter((item): item is DeckItem => item !== null); // Ensure we have a relation and filter out nulls
+            return { word, relation };
+        }).filter((item): item is DeckItem => item !== null);
 
-        // Shuffle the deck
         initialDeck.sort(() => Math.random() - 0.5);
 
         setDeck(initialDeck);
         setInitialDeckSize(initialDeck.length);
+        
+        const stats = { Hard: 0, Good: 0, Easy: 0, None: 0 };
+        words.forEach(word => {
+            stats[word.stats.flashcardStatus || 'None']++;
+        });
+        setDeckStats(stats);
+
     }, [words, relationIds, relations, navigate]);
     
     const currentItem = deck.length > 0 ? deck[0] : null;
 
     const handleFlip = () => {
-        if(!currentItem) return;
+        if(!currentItem || isUpdating || feedback?.show) return;
         setIsFlipped(prev => !prev);
     };
     
     const handleEndSession = () => {
-        fetchData(); // Refresh data context to show updated stats on setup page
+        fetchData();
         navigate('/flashcards');
     };
-
-    const handleIKnow = async () => {
-        if (!currentItem || isUpdating) return;
-        setIsUpdating(true);
-
-        const currentStatus = currentItem.status;
-        let nextStatus: 'Good' | 'Easy' = 'Good';
-        let nextDeck = [...deck];
-        const knownItem = nextDeck.shift();
-        
-        if (!knownItem) {
-            setIsUpdating(false);
-            return;
-        }
-
-        if (currentStatus === 'Good' || currentStatus === 'Easy') {
-            nextStatus = 'Easy';
-            // Send to tail
-            const newItem: DeckItem = { ...knownItem, status: nextStatus };
-            nextDeck.push(newItem);
-        } else { // 'None' or 'Hard'
-            nextStatus = 'Good';
-            const newItem: DeckItem = { ...knownItem, status: nextStatus };
-            // insert at y+8
-            if (nextDeck.length >= 8) {
-                nextDeck.splice(8, 0, newItem);
-            } else {
-                nextDeck.push(newItem);
-            }
-        }
-
-        await dataService.updateFlashcardStatus(currentItem.word.tableId, currentItem.word.id, nextStatus);
-        
-        setDeck(nextDeck);
-        setIsFlipped(false);
-        setIsUpdating(false);
-    };
     
-    const handleIDontKnow = async () => {
-        if (!currentItem || isUpdating) return;
+    const handleAnswer = async (correct: boolean) => {
+        if (!currentItem || isUpdating || !isFlipped) return;
         setIsUpdating(true);
-        
-        const nextStatus = 'Hard';
-        let nextDeck = [...deck];
-        const unknownItem = nextDeck.shift();
 
-        if (!unknownItem) {
-            setIsUpdating(false);
-            return;
-        }
+        const oldStatus = currentItem.word.stats.flashcardStatus;
+        let newStatus: FlashcardStatus;
+        let feedbackMessage = '';
 
-        const newItem: DeckItem = { ...unknownItem, status: nextStatus };
-
-        // insert at y+2
-        if (nextDeck.length >= 2) {
-            nextDeck.splice(2, 0, newItem);
+        if (correct) {
+            if (oldStatus === 'Good' || oldStatus === 'Easy') {
+                newStatus = 'Easy';
+                feedbackMessage = "Excellent! Marked as Easy.";
+            } else {
+                newStatus = 'Good';
+                feedbackMessage = "Great! Marked as Good.";
+            }
         } else {
-            nextDeck.push(newItem);
+            newStatus = 'Hard';
+            feedbackMessage = "Marked as Hard. You'll see this again soon!";
         }
 
-        await dataService.updateFlashcardStatus(currentItem.word.tableId, currentItem.word.id, nextStatus);
+        setFeedback({ show: true, correct, message: feedbackMessage });
 
-        setDeck(nextDeck);
-        setIsFlipped(false);
-        setIsUpdating(false);
+        await dataService.updateFlashcardStatus(currentItem.word.tableId, currentItem.word.id, newStatus);
+        
+        setDeckStats(prev => {
+            const newStats = { ...prev };
+            newStats[oldStatus]--;
+            newStats[newStatus]++;
+            return newStats;
+        });
+
+        setTimeout(() => {
+            let nextDeck = [...deck];
+            const itemToMove = nextDeck.shift()!;
+            
+            const updatedItem: DeckItem = {
+                ...itemToMove,
+                word: {
+                    ...itemToMove.word,
+                    stats: {
+                        ...itemToMove.word.stats,
+                        flashcardStatus: newStatus,
+                    },
+                },
+            };
+
+            if (correct) {
+                if (newStatus === 'Easy') {
+                    nextDeck.push(updatedItem);
+                } else { // 'Good'
+                    nextDeck.splice(Math.min(8, nextDeck.length), 0, updatedItem);
+                }
+            } else { // 'Hard'
+                nextDeck.splice(Math.min(2, nextDeck.length), 0, updatedItem);
+            }
+            
+            setDeck(nextDeck);
+            setIsFlipped(false);
+            setFeedback(null);
+            setIsUpdating(false);
+        }, 1500);
     };
 
     const handleReset = () => {
-        // Just re-run the effect
-         if (!words || !relationIds) {
+        if (!words || !relationIds) {
             navigate('/flashcards');
             return;
         }
@@ -183,12 +198,16 @@ const FlashcardSessionPage: React.FC = () => {
             const applicableRelations = sessionRelations.filter(r => r.tableId === word.tableId);
             if(applicableRelations.length === 0) return null;
             const relation = applicableRelations[Math.floor(Math.random() * applicableRelations.length)];
-            return { word, relation, status: word.stats.flashcardStatus || 'None' };
+            return { word, relation };
         }).filter((item): item is DeckItem => item !== null);
         initialDeck.sort(() => Math.random() - 0.5);
         setDeck(initialDeck);
         setIsFlipped(false);
     };
+
+    // FIX: Explicitly cast Object.values to number[] to correct a type inference issue where
+    // the arguments in `reduce` were being inferred as `unknown`.
+    const totalStats = useMemo(() => (Object.values(deckStats) as number[]).reduce((a, b) => a + b, 0) || 1, [deckStats]);
     
     if (!location.state) {
         return <div className="p-4 text-center">Loading session...</div>
@@ -203,20 +222,34 @@ const FlashcardSessionPage: React.FC = () => {
                 </div>
                 {initialDeckSize > 0 && (
                     <>
-                    <p className="text-text-secondary mt-2 text-center">
-                        Cards remaining: {deck.length} / {initialDeckSize}
-                    </p>
-                    <div className="h-2 mt-2 bg-slate-700 rounded-full w-full">
-                        <div className="bg-accent h-2 rounded-full" style={{ width: `${(initialDeckSize - deck.length) / initialDeckSize * 100}%` }}></div>
-                    </div>
+                        <p className="text-text-secondary mt-2 text-center">
+                            Deck Health ({initialDeckSize} cards)
+                        </p>
+                        {/* Dynamic "Deck Health" Bar */}
+                        <div className="flex h-2 mt-2 bg-slate-700 rounded-full w-full overflow-hidden">
+                            <div className="bg-red-500 transition-all duration-300" style={{ width: `${(deckStats.Hard / totalStats) * 100}%` }} title={`${deckStats.Hard} Hard`}></div>
+                            <div className="bg-yellow-500 transition-all duration-300" style={{ width: `${(deckStats.Good / totalStats) * 100}%` }} title={`${deckStats.Good} Good`}></div>
+                            <div className="bg-green-500 transition-all duration-300" style={{ width: `${(deckStats.Easy / totalStats) * 100}%` }} title={`${deckStats.Easy} Easy`}></div>
+                            <div className="bg-slate-500 transition-all duration-300" style={{ width: `${(deckStats.None / totalStats) * 100}%` }} title={`${deckStats.None} New`}></div>
+                        </div>
                     </>
                 )}
             </header>
 
             <main 
-                className="flex-grow flex flex-col items-center justify-center w-full"
+                className="flex-grow flex flex-col items-center justify-center w-full relative"
                 style={{ perspective: '1000px' }}
             >
+                 {feedback?.show && (
+                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-xl z-20 transition-opacity duration-300">
+                        {feedback.correct ? (
+                            <CheckCircleIcon className="w-24 h-24 text-green-400" />
+                        ) : (
+                            <XCircleIcon className="w-24 h-24 text-red-400" />
+                        )}
+                        <p className="mt-4 text-lg font-semibold text-white bg-black/50 px-4 py-2 rounded-md">{feedback.message}</p>
+                    </div>
+                )}
                 {currentItem ? (
                     <>
                         <Flashcard item={currentItem} isFlipped={isFlipped} onFlip={handleFlip} />
@@ -224,10 +257,10 @@ const FlashcardSessionPage: React.FC = () => {
                         <div className="mt-8 w-full max-w-2xl flex justify-around">
                             {isFlipped ? (
                                 <>
-                                    <button onClick={handleIDontKnow} disabled={isUpdating} className="bg-red-500 text-white font-bold py-4 px-6 rounded-lg text-lg w-2/5 shadow-lg transform hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-wait">
+                                    <button onClick={() => handleAnswer(false)} disabled={isUpdating} className="bg-red-500 text-white font-bold py-4 px-6 rounded-lg text-lg w-2/5 shadow-lg transform hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-wait">
                                         I Don't Know
                                     </button>
-                                     <button onClick={handleIKnow} disabled={isUpdating} className="bg-green-500 text-white font-bold py-4 px-6 rounded-lg text-lg w-2/5 shadow-lg transform hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-wait">
+                                     <button onClick={() => handleAnswer(true)} disabled={isUpdating} className="bg-green-500 text-white font-bold py-4 px-6 rounded-lg text-lg w-2/5 shadow-lg transform hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-wait">
                                         I Know
                                     </button>
                                 </>

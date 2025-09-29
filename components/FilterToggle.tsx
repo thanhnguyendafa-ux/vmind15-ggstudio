@@ -1,20 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FilterIcon, XIcon, PlusIcon } from './Icons';
 import { getColumnType } from '../utils';
-import { ColumnDef } from '../types';
-
-// --- TYPES FOR FILTER ---
-
-export type FilterCondition = 
-  'contains' | 'doesNotContain' | 'equals' | 'notEquals' |
-  'greaterThan' | 'lessThan' | 'is' | 'isEmpty' | 'isNotEmpty';
-
-export interface FilterLayer {
-    id: string;
-    column: string;
-    condition: FilterCondition;
-    value: string;
-}
+import { ColumnDef, FilterCondition, FilterLayer } from '../types';
 
 // --- COLUMN TYPE HELPERS ---
 

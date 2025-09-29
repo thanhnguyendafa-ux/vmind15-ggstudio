@@ -1,62 +1,9 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { VocabRow, VocabTable, VocabRowStats, ColumnDef } from '../types';
+import { VocabRow, VocabTable, ColumnDef, FilterLayer, SortLayer, TableFocus } from '../types';
 import { SortIcon, XIcon, PlusIcon, ChevronDownIcon, ChevronUpIcon } from './Icons';
 import { DEFAULT_COLUMNS } from '../constants';
-import FilterToggle, { FilterLayer } from './FilterToggle';
-import { getColumnType } from '../utils';
-
-// --- TYPES FOR SORT ---
-
-type SortDirection = 'asc' | 'desc';
-interface SortLayer {
-    column: string;
-    direction: SortDirection;
-}
-
-// --- FILTER/SORT HELPERS ---
-
-const getRowValue = (row: VocabRow, column: string, tableColumns: string[]): any => {
-    if (column === 'keyword') return row.keyword;
-    if (tableColumns.includes(column)) return row.data[column] || '';
-    if (DEFAULT_COLUMNS.includes(column)) {
-        if (column === 'Tags') return row.tags.join(', ');
-        return row.stats[column as keyof VocabRowStats];
-    }
-    return '';
-};
-
-const checkCondition = (row: VocabRow, layer: FilterLayer, table: VocabTable): boolean => {
-    const { column, condition, value } = layer;
-    const rowValue = getRowValue(row, column, table.columns.map(c => c.name));
-    const colType = getColumnType(column, table.columns);
-
-    if (condition === 'isEmpty') return rowValue === null || rowValue === undefined || String(rowValue).trim() === '';
-    if (condition === 'isNotEmpty') return rowValue !== null && rowValue !== undefined && String(rowValue).trim() !== '';
-    
-    if (rowValue === null || rowValue === undefined || String(rowValue).trim() === '') return false;
-
-    if (colType === 'text' || colType === 'image') {
-        const strRowValue = String(rowValue).toLowerCase();
-        const strValue = String(value).toLowerCase();
-        if (condition === 'contains') return strRowValue.includes(strValue);
-        if (condition === 'doesNotContain') return !strRowValue.includes(strValue);
-        if (condition === 'equals') return strRowValue === strValue;
-    } else if (colType === 'number') {
-        const numRowValue = Number(rowValue);
-        const numValue = Number(value);
-        if (isNaN(numRowValue) || isNaN(numValue)) return false;
-        if (condition === 'equals') return numRowValue === numValue;
-        if (condition === 'notEquals') return numRowValue !== numValue;
-        if (condition === 'greaterThan') return numRowValue > numValue;
-        if (condition === 'lessThan') return numRowValue < numValue;
-    } else if (colType === 'boolean') {
-        const boolValue = value === 'true';
-        if (condition === 'is') return !!rowValue === boolValue;
-    }
-    return false;
-};
-
+import FilterToggle from './FilterToggle';
+import { getColumnType, checkCondition, getRowValue } from '../utils';
 
 // --- SORT TOGGLE COMPONENT ---
 const SortToggle: React.FC<{
@@ -113,7 +60,7 @@ const SortToggle: React.FC<{
                             </select>
                             <select
                                 value={layer.direction}
-                                onChange={e => handleLayerChange(index, { direction: e.target.value as SortDirection })}
+                                onChange={e => handleLayerChange(index, { direction: e.target.value as 'asc' | 'desc' })}
                                 className="bg-primary dark:bg-slate-700 p-2 rounded-md text-sm border border-slate-600"
                             >
                                 <option value="asc">Asc</option>
@@ -179,20 +126,16 @@ const SameFocusModal: React.FC<SameFocusModalProps> = ({ isOpen, onClose, onAppl
 
 
 // --- MAIN WORD SELECTION COMPONENT ---
-interface TableFocus {
-    filterLayers: FilterLayer[];
-    sortLayers: SortLayer[];
-}
-
 interface WordSelectionProps {
     tables: VocabTable[];
     selectedTableIds: string[];
     onSelectionChange: (words: VocabRow[]) => void;
     initialSelection: VocabRow[];
+    tableFocus: Record<string, TableFocus>;
+    onTableFocusChange: (newFocus: Record<string, TableFocus>) => void;
 }
 
-const WordSelection: React.FC<WordSelectionProps> = ({ tables, selectedTableIds, onSelectionChange, initialSelection }) => {
-    const [tableFocus, setTableFocus] = useState<Record<string, TableFocus>>({});
+const WordSelection: React.FC<WordSelectionProps> = ({ tables, selectedTableIds, onSelectionChange, initialSelection, tableFocus, onTableFocusChange }) => {
     const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(() => new Set(initialSelection.map(w => w.id)));
     const [isSameFocusModalOpen, setIsSameFocusModalOpen] = useState(false);
     const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
@@ -201,10 +144,13 @@ const WordSelection: React.FC<WordSelectionProps> = ({ tables, selectedTableIds,
 
     useEffect(() => {
         const newFocus: Record<string, TableFocus> = {};
+        let updated = false;
         selectedTables.forEach(t => {
             newFocus[t.id] = tableFocus[t.id] || { filterLayers: [], sortLayers: [] };
+            if(!tableFocus[t.id]) updated = true;
         });
-        setTableFocus(newFocus);
+        if(updated) onTableFocusChange(newFocus);
+
         if (selectedTables.length > 0 && expandedTables.size === 0) {
             setExpandedTables(new Set([selectedTables[0].id]));
         } else {
@@ -315,11 +261,15 @@ const WordSelection: React.FC<WordSelectionProps> = ({ tables, selectedTableIds,
         selectedTables.forEach(t => {
             newTableFocus[t.id] = { ...focus };
         });
-        setTableFocus(newTableFocus);
+        onTableFocusChange(newTableFocus);
     };
     
     const handleFocusChange = (tableId: string, newFocus: Partial<TableFocus>) => {
-        setTableFocus(prev => ({ ...prev, [tableId]: { ...prev[tableId], ...newFocus }}));
+        const newFullFocus = {
+            ...tableFocus,
+            [tableId]: { ...tableFocus[tableId], ...newFocus }
+        };
+        onTableFocusChange(newFullFocus);
     };
 
     const toggleTableExpansion = (tableId: string) => {

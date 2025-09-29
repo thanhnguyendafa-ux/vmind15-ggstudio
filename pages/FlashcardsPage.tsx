@@ -79,65 +79,72 @@ const FlashcardsPage: React.FC = () => {
     }
 
     return (
-        <div className="p-4 sm:p-6 max-w-2xl mx-auto">
+        <div className="p-4 sm:p-6">
             <h1 className="text-3xl font-bold mb-6 text-text-primary">Setup Flashcards</h1>
             
-            <section className="mb-8 p-4 bg-secondary rounded-lg">
-                <h2 className="text-xl font-semibold text-accent mb-4">Flashcard Stats</h2>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                        <p className="text-3xl font-bold text-red-400">{flashcardStats.Hard}</p>
-                        <p className="text-sm text-text-secondary">Hard</p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                {/* Main Content Column */}
+                <div className="lg:col-span-2 space-y-8">
+                    <div className="bg-secondary p-6 rounded-xl shadow-lg">
+                        <h2 className="text-xl font-semibold text-accent mb-4">1. Select Tables</h2>
+                        <div className="space-y-2">
+                            {tables.map(table => (
+                                <label key={table.id} className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${selectedTableIds.includes(table.id) ? 'bg-accent text-white font-bold' : 'bg-primary hover:bg-slate-200'}`}>
+                                    <input type="checkbox" checked={selectedTableIds.includes(table.id)} onChange={() => handleTableToggle(table.id)} className="mr-3 h-5 w-5 rounded accent-primary" />
+                                    {table.name} ({table.rows.length} words)
+                                </label>
+                            ))}
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-3xl font-bold text-yellow-400">{flashcardStats.Good}</p>
-                        <p className="text-sm text-text-secondary">Good</p>
-                    </div>
-                    <div>
-                        <p className="text-3xl font-bold text-green-400">{flashcardStats.Easy}</p>
-                        <p className="text-sm text-text-secondary">Easy</p>
+
+                    {selectedTableIds.length > 0 && (
+                        <div className="bg-secondary p-6 rounded-xl shadow-lg">
+                            <h2 className="text-xl font-semibold text-accent mb-4">2. Select Relations</h2>
+                            <p className="text-sm text-text-secondary mb-3">If you choose more than one, a relation will be chosen randomly for each card.</p>
+                            <div className="space-y-2">
+                                {availableRelations.length > 0 ? availableRelations.map(rel => (
+                                    <label key={rel.id} className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${selectedRelationIds.includes(rel.id) ? 'bg-accent text-white font-bold' : 'bg-primary hover:bg-slate-200'}`}>
+                                        <input type="checkbox" checked={selectedRelationIds.includes(rel.id)} onChange={() => handleRelationToggle(rel.id)} className="mr-3 h-5 w-5 rounded accent-primary" />
+                                        <div>
+                                            <span className="font-semibold">{tables.find(t => t.id === rel.tableId)?.name}</span>: {rel.name}
+                                        </div>
+                                    </label>
+                                )) : (
+                                    <p className="text-text-secondary">No relations available for the selected tables.</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                     <button
+                        onClick={startSession}
+                        disabled={!canStart}
+                        className="w-full bg-accent text-white font-bold py-4 px-6 rounded-xl text-lg disabled:bg-slate-500 disabled:cursor-not-allowed disabled:shadow-none hover:bg-accent-darker transition-colors shadow-solid-accent active:translate-y-1 active:shadow-none"
+                    >
+                        Start Flashcards
+                    </button>
+                </div>
+
+                {/* Sidebar Column */}
+                <div className="lg:col-span-1 lg:sticky lg:top-6">
+                     <div className="bg-secondary p-6 rounded-xl shadow-lg">
+                        <h2 className="text-xl font-semibold text-accent mb-4">Flashcard Stats</h2>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <p className="text-3xl font-bold text-danger">{flashcardStats.Hard}</p>
+                                <p className="text-sm text-text-secondary">Hard</p>
+                            </div>
+                            <div>
+                                <p className="text-3xl font-bold text-yellow-400">{flashcardStats.Good}</p>
+                                <p className="text-sm text-text-secondary">Good</p>
+                            </div>
+                            <div>
+                                <p className="text-3xl font-bold text-success">{flashcardStats.Easy}</p>
+                                <p className="text-sm text-text-secondary">Easy</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </section>
-
-            <section className="mb-8">
-                <h2 className="text-xl font-semibold text-accent mb-4">1. Select Tables</h2>
-                <div className="space-y-2">
-                    {tables.map(table => (
-                        <label key={table.id} className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${selectedTableIds.includes(table.id) ? 'bg-accent text-primary font-bold' : 'bg-secondary'}`}>
-                            <input type="checkbox" checked={selectedTableIds.includes(table.id)} onChange={() => handleTableToggle(table.id)} className="mr-3 h-5 w-5 rounded accent-primary" />
-                            {table.name} ({table.rows.length} words)
-                        </label>
-                    ))}
-                </div>
-            </section>
-
-            {selectedTableIds.length > 0 && (
-                <section className="mb-8">
-                    <h2 className="text-xl font-semibold text-accent mb-4">2. Select Relations</h2>
-                    <p className="text-sm text-text-secondary mb-3">If you choose more than one, a relation will be chosen randomly for each card.</p>
-                    <div className="space-y-2">
-                        {availableRelations.length > 0 ? availableRelations.map(rel => (
-                             <label key={rel.id} className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${selectedRelationIds.includes(rel.id) ? 'bg-accent text-primary font-bold' : 'bg-secondary'}`}>
-                                <input type="checkbox" checked={selectedRelationIds.includes(rel.id)} onChange={() => handleRelationToggle(rel.id)} className="mr-3 h-5 w-5 rounded accent-primary" />
-                                <div>
-                                    <span className="font-semibold">{tables.find(t => t.id === rel.tableId)?.name}</span>: {rel.name}
-                                </div>
-                            </label>
-                        )) : (
-                            <p className="text-text-secondary">No relations available for the selected tables.</p>
-                        )}
-                    </div>
-                </section>
-            )}
-
-            <button
-                onClick={startSession}
-                disabled={!canStart}
-                className="w-full bg-accent text-primary font-bold py-3 px-6 rounded-lg text-lg disabled:bg-slate-500 disabled:cursor-not-allowed hover:bg-sky-500 transition-colors"
-            >
-                Start Flashcards
-            </button>
+            </div>
         </div>
     );
 };

@@ -132,3 +132,39 @@ export interface BackupRecord {
     format: 'json' | 'csv';
     fileRef: string; 
 }
+
+// For Filtering
+export type FilterCondition = 
+  'contains' | 'doesNotContain' | 'equals' | 'notEquals' |
+  'greaterThan' | 'lessThan' | 'is' | 'isEmpty' | 'isNotEmpty';
+
+export interface FilterLayer {
+    id: string;
+    column: string;
+    condition: FilterCondition;
+    value: string;
+}
+
+// For Sorting
+export type SortDirection = 'asc' | 'desc';
+export interface SortLayer {
+    column: string;
+    direction: SortDirection;
+}
+
+// For Study Presets
+export interface TableFocus {
+    filterLayers: FilterLayer[];
+    sortLayers: SortLayer[];
+}
+
+export interface StudyPreset {
+  id: string;
+  name: string;
+  tableIds: string[];
+  modes: StudyMode[];
+  relationIds: string[];
+  useRandomRelation: boolean;
+  wordCount: number;
+  tableFocus: Record<string, TableFocus>;
+}

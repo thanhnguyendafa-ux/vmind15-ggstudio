@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { StudyConfig, VocabRow, Relation, StudyMode, VocabTable, WordProgress, WordStatus } from '../types';
 import { useData } from '../hooks/useData';
 import { dataService } from '../services/dataService';
-import { XIcon } from '../components/Icons';
+import { XIcon, CheckCircleIcon, TrophyIcon, XCircleIcon } from '../components/Icons';
 
 interface QueueItem {
     word: VocabRow;
@@ -32,33 +32,33 @@ const FullExplanationModal: React.FC<{
     table: VocabTable;
     onContinue: () => void;
 }> = ({ word, table, onContinue }) => (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-        <div className="bg-secondary p-6 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
-            <h3 className="text-xl font-bold text-yellow-400 mb-4">Full Explanation for: <span className="text-text-primary">{word.keyword}</span></h3>
-            <div className="overflow-y-auto space-y-2 bg-primary p-3 rounded-md">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 v-modal-container">
+        <div className="bg-secondary dark:bg-slate-800 p-6 rounded-xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col v-modal-content">
+            <h3 className="text-xl font-bold text-danger mb-4">Full Explanation for: <span className="text-text-primary dark:text-slate-200">{word.keyword}</span></h3>
+            <div className="overflow-y-auto space-y-2 bg-primary dark:bg-slate-900/50 p-3 rounded-lg">
                 <div className="flex justify-between">
-                    <span className="font-semibold text-text-secondary">Keyword:</span>
-                    <span className="text-text-primary">{word.keyword}</span>
+                    <span className="font-bold text-text-secondary">Keyword:</span>
+                    <span className="text-text-primary dark:text-slate-200">{word.keyword}</span>
                 </div>
                 {table.columns.map(col => (
                     <div key={col.name} className="flex justify-between">
-                        <span className="font-semibold text-text-secondary">{col.name}:</span>
-                        <span className="text-text-primary text-right">{word.data[col.name] || '-'}</span>
+                        <span className="font-bold text-text-secondary">{col.name}:</span>
+                        <span className="text-text-primary dark:text-slate-200 text-right">{word.data[col.name] || '-'}</span>
                     </div>
                 ))}
-                <div className="pt-2 border-t border-slate-600 mt-2">
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
                     <div className="flex justify-between">
-                        <span className="font-semibold text-text-secondary">Rank Point:</span>
-                        <span className="text-text-primary">{word.stats.RankPoint}</span>
+                        <span className="font-bold text-text-secondary">Rank Point:</span>
+                        <span className="text-text-primary dark:text-slate-200">{word.stats.RankPoint}</span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="font-semibold text-text-secondary">Success Rate:</span>
-                        <span className="text-text-primary">{(word.stats.SuccessRate * 100).toFixed(0)}%</span>
+                        <span className="font-bold text-text-secondary">Success Rate:</span>
+                        <span className="text-text-primary dark:text-slate-200">{(word.stats.SuccessRate * 100).toFixed(0)}%</span>
                     </div>
                 </div>
             </div>
             <div className="mt-6 flex justify-end">
-                <button onClick={onContinue} className="bg-accent text-primary font-bold py-2 px-6 rounded-lg">
+                <button onClick={onContinue} className="w-full text-lg bg-accent text-white font-bold py-3 px-6 rounded-lg border-b-4 border-accent-darker active:translate-y-0.5 active:border-b-2">
                     Continue
                 </button>
             </div>
@@ -66,6 +66,42 @@ const FullExplanationModal: React.FC<{
     </div>
 );
 
+const WordStatusTracker: React.FC<{
+    words: VocabRow[];
+    wordProgress: Record<string, WordProgress>;
+    showKeywords: boolean;
+}> = ({ words, wordProgress, showKeywords }) => {
+    const getStatusIndicator = (status: WordStatus) => {
+        switch (status) {
+            case 'fail':
+                return <div className="w-3 h-3 bg-danger rounded-full" title="Fail"></div>;
+            case 'pass1':
+                return <div className="w-3 h-3 bg-yellow-400 rounded-full" title="Pass 1"></div>;
+            case 'pass2':
+                return <div className="w-3 h-3 bg-success rounded-full" title="Pass 2"></div>;
+            case 'untouched':
+            default:
+                return <div className="w-3 h-3 bg-slate-400 dark:bg-slate-600 rounded-full" title="Untouched"></div>;
+        }
+    };
+
+    return (
+        <div className="w-full overflow-x-auto pb-2">
+            <div className="flex items-start space-x-2">
+                {words.map(word => (
+                    <div key={word.id} className="flex flex-col items-center flex-shrink-0" style={{width: showKeywords ? '5rem' : '1rem'}}>
+                        {getStatusIndicator(wordProgress[word.id]?.status)}
+                        {showKeywords && (
+                            <p className="text-xs text-text-secondary dark:text-slate-400 mt-1 text-center truncate w-full" title={word.keyword}>
+                                {word.keyword}
+                            </p>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 const QStudyPage: React.FC = () => {
     const navigate = useNavigate();
@@ -83,9 +119,9 @@ const QStudyPage: React.FC = () => {
     const [mcqOptions, setMcqOptions] = useState<string[]>([]);
     const [tfStatement, setTfStatement] = useState<TFStatement | null>(null);
     const [isCommitting, setIsCommitting] = useState(false);
-    const [showKeywordsInTracker, setShowKeywordsInTracker] = useState(false);
-    const [speedMode, setSpeedMode] = useState(false);
     const [showFullExplanation, setShowFullExplanation] = useState(false);
+    const [isSpeedModeOn, setIsSpeedModeOn] = useState(false);
+    const [showKeywords, setShowKeywords] = useState(false);
 
 
     useEffect(() => {
@@ -228,22 +264,20 @@ const QStudyPage: React.FC = () => {
         setLastAnswerCorrect(isCorrect);
         setIsRevealed(true);
 
-        if (speedMode) {
-            setTimeout(() => advanceQueue(isCorrect), 800);
-        } else {
-            if (isCorrect) {
-                setTimeout(() => advanceQueue(isCorrect), 1500);
+        setTimeout(() => {
+            if (isSpeedModeOn) {
+                advanceQueue(isCorrect);
             } else {
-                // Incorrect in normal mode: just show the full explanation.
-                // The user will click "Continue" which triggers the next step.
-                setShowFullExplanation(true);
+                if (isCorrect) {
+                    advanceQueue(true);
+                } else {
+                    setShowFullExplanation(true);
+                }
             }
-        }
+        }, 1500);
     };
     
     const handleExplanationContinue = () => {
-        // When the user dismisses the explanation, we advance the queue
-        // with an "incorrect" result. advanceQueue handles all state updates.
         advanceQueue(false);
     };
 
@@ -267,8 +301,6 @@ const QStudyPage: React.FC = () => {
     }, [config, wordProgress, fetchData]);
 
 
-    // FIX: Explicitly cast Object.values to WordProgress[] to correct a type inference issue where
-    // the argument `p` in `.every()` was being inferred as `unknown`.
     const allWordsPassed = useMemo(() =>
         Object.keys(wordProgress).length > 0 && (Object.values(wordProgress) as WordProgress[]).every(p => p.status === 'pass2'),
     [wordProgress]);
@@ -280,66 +312,44 @@ const QStudyPage: React.FC = () => {
     }, [allWordsPassed, queue.length, isCommitting, handleCompletion]);
 
     useEffect(() => {
-        // This function will be called when the user navigates away or closes the tab.
-        // It's more reliable for saving state than 'beforeunload'.
         const handlePageHide = (event: PageTransitionEvent) => {
-            // `!event.persisted` is a check to ensure the page is actually being unloaded,
-            // not just put into the back-forward cache.
             if (!event.persisted && !allWordsPassed && !isCommitting) {
-                // This is a "fire and forget" call. We can't await it during page unload.
-                // In a real application with a backend, this would use `navigator.sendBeacon()`.
-                // In our mock environment, this schedules the updates which should
-                // complete before the JavaScript context is destroyed.
                 dataService.updateStatsOnQuit(config, wordProgress);
             }
         };
-
         window.addEventListener('pagehide', handlePageHide);
-
-        // The 'beforeunload' event is still needed to show the confirmation prompt to the user.
-        // This gives them a chance to cancel leaving the page.
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
             if (!allWordsPassed) {
                 event.preventDefault();
-                // Required for cross-browser compatibility to trigger the prompt.
                 event.returnValue = '';
             }
         };
-
         window.addEventListener('beforeunload', handleBeforeUnload);
-
-        // Cleanup the event listeners when the component unmounts or the dependencies change.
         return () => {
             window.removeEventListener('pagehide', handlePageHide);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
     }, [allWordsPassed, isCommitting, config, wordProgress]);
 
-
-    const displayWords = useMemo(() => {
-        const wordsInQueue = queue.map(item => item.word);
-        const queueWordIds = new Set(wordsInQueue.map(w => w.id));
-    
-        const completedWords = config.words
-            .filter(word => {
-                const progress = wordProgress[word.id];
-                return progress?.status === 'pass2' && !queueWordIds.has(word.id);
-            })
-            .sort((a, b) => a.keyword.localeCompare(b.keyword));
-    
-        return [...wordsInQueue, ...completedWords];
-    }, [queue, config.words, wordProgress]);
+    const progressPercent = useMemo(() => {
+        if (!config?.words) return 0;
+        const passedCount = (Object.values(wordProgress) as WordProgress[]).filter(p => p.status === 'pass2').length;
+        return (passedCount / config.words.length) * 100;
+    }, [wordProgress, config]);
 
     if (!config || !config.words) return <div className="p-4">Loading session...</div>;
 
     if (allWordsPassed && isCommitting) {
          return (
-             <div className="flex flex-col items-center justify-center h-screen bg-primary text-text-primary p-4">
-                <h1 className="text-4xl font-bold text-green-400 mb-4">Session Complete!</h1>
-                <p className="text-xl mb-8">Great work! Your progress has been saved.</p>
-                 <button onClick={() => navigate('/')} className="bg-accent text-primary font-bold py-3 px-8 rounded-lg text-lg">
-                    Back to Home
-                </button>
+             <div className="fixed inset-0 bg-primary dark:bg-slate-900 flex items-center justify-center p-4 z-50">
+                 <div className="text-center celebrate-animation">
+                    <TrophyIcon className="w-24 h-24 text-yellow-400 mx-auto animate-pulse" />
+                    <h1 className="text-4xl font-black text-accent mt-4">Session Complete!</h1>
+                    <p className="text-xl mt-2 text-text-secondary">Great work! Your progress has been saved.</p>
+                    <button onClick={() => navigate('/')} className="mt-8 text-lg bg-accent text-white font-bold py-4 px-10 rounded-xl border-b-4 border-accent-darker active:translate-y-0.5 active:border-b-2">
+                        Continue
+                    </button>
+                </div>
             </div>
         )
     }
@@ -347,23 +357,23 @@ const QStudyPage: React.FC = () => {
     const currentTable = currentItem ? tables.find(t => t.id === currentItem.word.tableId) : null;
 
     return (
-        <div className="p-4 sm:p-6 flex flex-col h-screen">
+        <div className="flex flex-col h-screen">
             {isQuitModalOpen && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-secondary p-6 rounded-lg shadow-xl max-w-sm w-full">
-                        <h3 className="text-xl font-bold text-red-400 mb-4">Quit Session?</h3>
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 v-modal-container">
+                    <div className="bg-secondary dark:bg-slate-800 p-6 rounded-xl shadow-xl max-w-sm w-full v-modal-content">
+                        <h3 className="text-2xl font-bold text-danger mb-4">Quit Session?</h3>
                         <p className="text-text-secondary mb-6">
-                            Your progress in this session will not be saved. Words you haven't fully learned will be marked to be prioritized in future sessions.
+                            Progress won't be saved, and unlearned words will be prioritized later.
                         </p>
                         <div className="flex justify-end space-x-4">
-                            <button onClick={() => setIsQuitModalOpen(false)} className="bg-primary dark:bg-slate-600 text-text-primary dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-500 transition-colors font-semibold py-2 px-4 rounded-lg">
-                                Cancel
+                            <button onClick={() => setIsQuitModalOpen(false)} className="bg-slate-200 dark:bg-slate-700 text-text-primary dark:text-slate-200 font-bold py-3 px-5 rounded-lg border-b-4 border-slate-300 dark:border-slate-900 active:translate-y-0.5 active:border-b-2">
+                                Stay
                             </button>
                             <button 
                                 onClick={handleQuit} 
                                 disabled={isCommitting}
-                                className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg disabled:bg-red-800">
-                                {isCommitting ? 'Quitting...' : 'Confirm Quit'}
+                                className="bg-accent text-white font-bold py-3 px-5 rounded-lg border-b-4 border-accent-darker active:translate-y-0.5 active:border-b-2 disabled:opacity-50">
+                                {isCommitting ? 'Quitting...' : 'Quit'}
                             </button>
                         </div>
                     </div>
@@ -376,153 +386,122 @@ const QStudyPage: React.FC = () => {
                     onContinue={handleExplanationContinue}
                 />
             )}
-            <header className="mb-4">
-                <div className="flex justify-between items-center flex-wrap gap-2">
-                   <h2 className="text-xl font-bold">Study Session</h2>
-                    <div className="flex items-center gap-2">
-                         <label htmlFor="speed-mode-toggle" className="flex items-center cursor-pointer">
-                            <span className="mr-2 text-sm text-text-secondary">Speed Mode</span>
-                            <div className="relative">
-                                <input type="checkbox" id="speed-mode-toggle" className="sr-only" checked={speedMode} onChange={() => setSpeedMode(p => !p)} />
-                                <div className={`block w-10 h-6 rounded-full ${speedMode ? 'bg-accent' : 'bg-slate-600'}`}></div>
-                                <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${speedMode ? 'transform translate-x-4' : ''}`}></div>
-                            </div>
-                        </label>
-                        <button
-                            onClick={() => setShowKeywordsInTracker(p => !p)}
-                            className="text-sm bg-secondary dark:bg-slate-700 text-text-secondary dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 px-3 py-1 rounded-md"
-                            aria-pressed={showKeywordsInTracker}
-                        >
-                            {showKeywordsInTracker ? 'Hide' : 'Show'} Words
-                        </button>
-                        <button onClick={() => setIsQuitModalOpen(true)} className="bg-red-500 text-white px-3 py-1 rounded">Quit</button>
+            <header className="p-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-4">
+                    <button onClick={() => setIsQuitModalOpen(true)} className="text-text-secondary hover:text-text-primary p-2">
+                        <XIcon className="w-7 h-7" />
+                    </button>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
+                        <div className="bg-accent h-full rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }}></div>
                     </div>
                 </div>
-                <div className="flex flex-wrap gap-1 mt-4">
-                    {displayWords.map((word, index) => {
-                        const progress = wordProgress[word.id];
-                        if (!progress) return null;
-                        
-                        const isCurrent = index === 0 && queue.length > 0 && progress.status !== 'pass2';
-
-                        let color = 'bg-secondary border-slate-600';
-                        let statusContent: React.ReactNode = <>&nbsp;</>;
-
-                        if (isCurrent) {
-                            color = 'bg-red-900 border-red-700';
-                        } else if (progress.status === 'pass2') {
-                            color = 'bg-green-900/50 border-green-700 text-green-300';
+                 <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="w-full sm:w-auto">
+                        {wordProgress && Object.keys(wordProgress).length > 0 &&
+                            <WordStatusTracker words={config.words} wordProgress={wordProgress} showKeywords={showKeywords} />
                         }
-                        
-                        if (progress.status === 'fail') {
-                            statusContent = '🔴';
-                        } else if (progress.status === 'pass1') {
-                            statusContent = '🟡';
-                        } else if (progress.status === 'pass2') {
-                            statusContent = '🟢';
-                        }
-                        
-                        return (
-                            <div 
-                                key={word.id} 
-                                className={`flex-1 p-1 rounded-md border text-xs text-center transition-all duration-300 ${color}`}
-                                style={{minWidth: '50px'}}
-                                title={word.keyword}
-                            >
-                                <div className="truncate h-5 flex items-center justify-center font-mono">
-                                    {showKeywordsInTracker ? word.keyword : statusContent}
-                                </div>
-                            </div>
-                        )
-                    })}
-                </div>
-                 <div className="h-1 mt-2 bg-slate-700 rounded-full">
-                    {/* FIX: Explicitly cast Object.values to WordProgress[] to correct a type inference issue. */}
-                    <div className="bg-accent h-1 rounded-full" style={{ width: `${(Object.values(wordProgress) as WordProgress[]).filter(p => p.status === 'pass2').length / config.words.length * 100}%` }}></div>
+                    </div>
+                    <div className="flex items-center justify-end gap-4 w-full sm:w-auto flex-shrink-0">
+                        <div className="flex items-center space-x-2">
+                            <label htmlFor="show-words-toggle" className="text-sm font-bold text-text-secondary whitespace-nowrap">Show Words</label>
+                            <button id="show-words-toggle" onClick={() => setShowKeywords(!showKeywords)} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors`} role="switch" aria-checked={showKeywords}>
+                                <span className={`${showKeywords ? 'bg-accent' : 'bg-slate-400 dark:bg-slate-600'} absolute h-6 w-11 rounded-full`}></span>
+                                <span className={`${showKeywords ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}></span>
+                            </button>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <label htmlFor="speed-mode-toggle" className="text-sm font-bold text-text-secondary whitespace-nowrap">Speed Mode</label>
+                            <button id="speed-mode-toggle" onClick={() => setIsSpeedModeOn(!isSpeedModeOn)} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors`} role="switch" aria-checked={isSpeedModeOn}>
+                                <span className={`${isSpeedModeOn ? 'bg-accent' : 'bg-slate-400 dark:bg-slate-600'} absolute h-6 w-11 rounded-full`}></span>
+                                <span className={`${isSpeedModeOn ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}></span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </header>
 
-            <main className="flex-grow flex flex-col items-center justify-center bg-secondary rounded-lg p-4">
+            <main className="flex-grow flex flex-col justify-between p-4">
                 {currentItem ? (
-                    <div className="w-full max-w-md text-center">
-                        <div className="mb-8">
-                            <p className="text-sm text-text-secondary mb-2">{currentItem.relation.name}</p>
+                    <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-center flex-grow">
+                        <div className="mb-8 text-center">
+                            <p className="text-lg font-bold text-text-secondary mb-2">{currentItem.relation.name}</p>
                             {currentItem.relation.questionCols.map(col => (
-                                <p key={col} className="text-3xl font-bold text-text-primary">
-                                    <span className="font-normal text-text-secondary">{col.charAt(0).toUpperCase() + col.slice(1)}: </span>
+                                <p key={col} className="text-4xl font-black text-text-primary dark:text-slate-200">
                                     {getDisplayValue(currentItem.word, col)}
                                 </p>
                             ))}
                         </div>
                         
-                        {!isRevealed ? (
-                             <>
-                                {currentItem.mode === StudyMode.Typing && (
-                                    <div className="flex flex-col items-center">
-                                        <input 
-                                            type="text"
-                                            value={userAnswer}
-                                            onChange={(e) => setUserAnswer(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && checkTypingAnswer()}
-                                            className="bg-primary text-text-primary text-lg p-3 rounded-md w-full mb-4 text-center"
-                                            placeholder="Type your answer..."
-                                            autoFocus
-                                        />
-                                        <button onClick={checkTypingAnswer} className="bg-accent text-primary font-bold py-3 px-8 rounded-lg text-lg w-full">Submit</button>
+                        <div className="w-full">
+                            {currentItem.mode === StudyMode.Typing && (
+                                <div className="flex flex-col items-center">
+                                    <input 
+                                        type="text"
+                                        value={userAnswer}
+                                        onChange={(e) => setUserAnswer(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && checkTypingAnswer()}
+                                        className="bg-secondary dark:bg-slate-700 text-text-primary dark:text-slate-200 text-lg p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 focus:border-accent dark:focus:border-accent w-full mb-4 text-center focus:outline-none"
+                                        placeholder="Type your answer..."
+                                        autoFocus
+                                        disabled={isRevealed}
+                                    />
+                                    <button onClick={checkTypingAnswer} disabled={isRevealed} className="w-full text-lg bg-accent text-white font-bold py-3 px-6 rounded-xl border-b-4 border-accent-darker active:translate-y-0.5 active:border-b-2 disabled:opacity-50">Check</button>
+                                </div>
+                            )}
+                            {currentItem.mode === StudyMode.MCQ && (
+                                <div className="space-y-3 w-full">
+                                    {mcqOptions.map((option, index) => {
+                                        const isCorrect = option === getAnswerForWord(currentItem.word, currentItem.relation);
+                                        return (
+                                            <button 
+                                                key={`${currentItem.word.id}-${index}`}
+                                                onClick={() => handleAnswer(isCorrect)} 
+                                                disabled={isRevealed}
+                                                className="w-full text-left text-lg font-bold p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-secondary dark:bg-slate-800 text-text-primary dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                            >
+                                                {option}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                            {currentItem.mode === StudyMode.TF && tfStatement && (
+                                <div className="w-full">
+                                    <div className="bg-secondary dark:bg-slate-800 p-4 rounded-xl mb-6 text-center">
+                                        <p className="text-3xl font-black text-text-primary dark:text-slate-200">
+                                            {tfStatement.answerPart.value}
+                                        </p>
                                     </div>
-                                )}
-                                {currentItem.mode === StudyMode.MCQ && (
-                                    <div className="space-y-3 w-full">
-                                        {mcqOptions.map((option, index) => {
-                                            const isCorrect = option === getAnswerForWord(currentItem.word, currentItem.relation);
-                                            return (
-                                                <button 
-                                                    key={`${currentItem.word.id}-${index}`}
-                                                    onClick={() => handleAnswer(isCorrect)} 
-                                                    className="bg-primary dark:bg-slate-600 text-text-primary dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-500 w-full p-4 rounded-lg text-lg text-left transition-colors"
-                                                >
-                                                    {option}
-                                                </button>
-                                            )
-                                        })}
+                                    <div className="flex justify-center gap-4">
+                                        <button onClick={() => handleAnswer(tfStatement.isCorrect)} disabled={isRevealed} className="w-full text-lg bg-accent text-white font-bold py-3 px-6 rounded-xl border-b-4 border-accent-darker active:translate-y-0.5 active:border-b-2 disabled:opacity-50">True</button>
+                                        <button onClick={() => handleAnswer(!tfStatement.isCorrect)} disabled={isRevealed} className="w-full text-lg bg-danger text-white font-bold py-3 px-6 rounded-xl border-b-4 border-red-700 active:translate-y-0.5 active:border-b-2 disabled:opacity-50">False</button>
                                     </div>
-                                )}
-                                {currentItem.mode === StudyMode.TF && tfStatement && (
-                                    <div className="w-full">
-                                        <div className="bg-primary p-4 rounded-lg mb-6">
-                                            <p className="text-2xl font-bold text-text-primary">
-                                                <span className="font-normal text-text-secondary">{tfStatement.answerPart.col.charAt(0).toUpperCase() + tfStatement.answerPart.col.slice(1)}: </span>
-                                                {tfStatement.answerPart.value}
-                                            </p>
-                                        </div>
-                                        <div className="flex justify-around">
-                                            <button onClick={() => handleAnswer(tfStatement.isCorrect)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-lg text-xl w-5/12">True</button>
-                                            <button onClick={() => handleAnswer(!tfStatement.isCorrect)} className="bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-lg text-xl w-5/12">False</button>
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                             <div className={`p-4 rounded-lg ${lastAnswerCorrect ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                <p className="text-2xl font-bold">{lastAnswerCorrect ? 'Correct!' : 'Incorrect'}</p>
-                                {!lastAnswerCorrect && (
-                                    <p className="mt-2 text-text-primary">
-                                        The correct answer is:
-                                        {currentItem.relation.answerCols.map(col => (
-                                            <span key={col} className="block">
-                                                <span className="font-bold">{col.charAt(0).toUpperCase() + col.slice(1)}: </span>
-                                                {getDisplayValue(currentItem.word, col)}
-                                            </span>
-                                        ))}
-                                    </p>
-                                )}
-                            </div>
-                        )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 ) : (
-                    !allWordsPassed && <p>Loading next question...</p>
+                    <div className="text-center flex-grow flex items-center justify-center">
+                        <p>Loading next question...</p>
+                    </div>
                 )}
             </main>
+            
+            {isRevealed && lastAnswerCorrect !== null && (
+                 <div className={`fixed bottom-0 left-0 right-0 p-6 transition-transform duration-300 ${isRevealed ? 'translate-y-0' : 'translate-y-full'} ${lastAnswerCorrect ? 'bg-success' : 'bg-danger'}`}>
+                    <div className="max-w-2xl mx-auto flex items-center">
+                        <div className="mr-4">
+                            {lastAnswerCorrect ? <CheckCircleIcon className="w-10 h-10 text-white" /> : <XCircleIcon className="w-10 h-10 text-white" />}
+                        </div>
+                        <div>
+                            <p className="text-2xl font-black text-white">{lastAnswerCorrect ? 'You are correct!' : 'Incorrect'}</p>
+                            {!lastAnswerCorrect && currentItem && (
+                                <p className="text-white font-bold">Correct answer: {getAnswerForWord(currentItem.word, currentItem.relation)}</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

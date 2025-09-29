@@ -6,9 +6,10 @@ import { PlusIcon, MoreVerticalIcon, ImportIcon, ExportIcon, EditIcon, TrashIcon
 import { DEFAULT_COLUMNS } from '../constants';
 import AddWordModal from '../components/AddWordModal';
 import EditWordModal from '../components/EditWordModal';
-import { VocabRow, Relation, VocabTable, VocabRowStats, ColumnDef } from '../types';
-import FilterToggle, { FilterLayer } from '../components/FilterToggle';
-import { getColumnType } from '../utils';
+// FIX: Import FilterLayer from ../types instead of ../components/FilterToggle
+import { VocabRow, Relation, VocabTable, VocabRowStats, ColumnDef, SortLayer, SortDirection, FilterLayer } from '../types';
+import FilterToggle from '../components/FilterToggle';
+import { getColumnType, getRowValue, checkCondition } from '../utils';
 import AddColumnModal from '../components/AddColumnModal';
 
 
@@ -265,12 +266,6 @@ const ColumnsToggle: React.FC<{
     );
 }
 
-type SortDirection = 'asc' | 'desc';
-interface SortLayer {
-    column: string;
-    direction: SortDirection;
-}
-
 const SortToggle: React.FC<{
     allColumns: string[];
     sortLayers: SortLayer[];
@@ -360,9 +355,9 @@ const RelationInfoModal: React.FC<{
 
     if (!relation) return null;
 
-    const getDisplayValue = (word: VocabRow, col: string) => {
-        if (col === 'keyword') return word.keyword;
-        return word.data[col] || '(empty)';
+    const _getDisplayValue = (word: VocabRow, col: string) => {
+        const userColumns = table.columns.map(c => c.name);
+        return getRowValue(word, col, userColumns) || '(empty)';
     };
 
     return (
@@ -397,13 +392,13 @@ const RelationInfoModal: React.FC<{
                                 <div>
                                     <p className="text-sm text-text-secondary">Question:</p>
                                     {relation.questionCols.map(col => (
-                                        <p key={col} className="text-text-primary ml-2"><strong>{col}:</strong> {getDisplayValue(randomRow, col)}</p>
+                                        <p key={col} className="text-text-primary ml-2"><strong>{col}:</strong> {_getDisplayValue(randomRow, col)}</p>
                                     ))}
                                 </div>
                                 <div>
                                     <p className="text-sm text-text-secondary">Answer:</p>
                                     {relation.answerCols.map(col => (
-                                        <p key={col} className="text-text-primary ml-2"><strong>{col}:</strong> {getDisplayValue(randomRow, col)}</p>
+                                        <p key={col} className="text-text-primary ml-2"><strong>{col}:</strong> {_getDisplayValue(randomRow, col)}</p>
                                     ))}
                                 </div>
                             </div>
@@ -467,49 +462,6 @@ const BulkTagModal: React.FC<{
 };
 
 type AugmentedVocabRow = VocabRow & { priorityScore?: number };
-
-const getRowValue = (row: AugmentedVocabRow, column: string, tableColumns: string[]): any => {
-    if (column === 'PriorityScore') return row.priorityScore;
-    if (column === 'keyword') return row.keyword;
-    if (tableColumns.includes(column)) return row.data[column] || '';
-    if (DEFAULT_COLUMNS.includes(column)) {
-        if (column === 'Tags') return row.tags.join(', ');
-        return row.stats[column as keyof VocabRowStats];
-    }
-    return '';
-};
-
-const checkCondition = (row: AugmentedVocabRow, layer: FilterLayer, table: VocabTable): boolean => {
-    const { column, condition, value } = layer;
-    const rowValue = getRowValue(row, column, table.columns.map(c => c.name));
-    const colType = getColumnType(column, table.columns);
-
-    if (condition === 'isEmpty') return rowValue === null || rowValue === undefined || String(rowValue).trim() === '';
-    if (condition === 'isNotEmpty') return rowValue !== null && rowValue !== undefined && String(rowValue).trim() !== '';
-    
-    // From here, if rowValue is empty, it shouldn't match most conditions
-    if (rowValue === null || rowValue === undefined || String(rowValue).trim() === '') return false;
-
-    if (colType === 'text' || colType === 'image') {
-        const strRowValue = String(rowValue).toLowerCase();
-        const strValue = String(value).toLowerCase();
-        if (condition === 'contains') return strRowValue.includes(strValue);
-        if (condition === 'doesNotContain') return !strRowValue.includes(strValue);
-        if (condition === 'equals') return strRowValue === strValue;
-    } else if (colType === 'number') {
-        const numRowValue = Number(rowValue);
-        const numValue = Number(value);
-        if (isNaN(numRowValue) || isNaN(numValue)) return false;
-        if (condition === 'equals') return numRowValue === numValue;
-        if (condition === 'notEquals') return numRowValue !== numValue;
-        if (condition === 'greaterThan') return numRowValue > numValue;
-        if (condition === 'lessThan') return numRowValue < numValue;
-    } else if (colType === 'boolean') {
-        const boolValue = value === 'true';
-        if (condition === 'is') return !!rowValue === boolValue;
-    }
-    return false;
-};
 
 const WordCardModal: React.FC<{
     word: VocabRow;
@@ -614,7 +566,7 @@ const TableDetailPage: React.FC = () => {
         try {
             const savedViewMode = localStorage.getItem(`vmind_view_mode_${tableId}`);
             if (savedViewMode === 'table' || savedViewMode === 'gallery') {
-                setViewMode(savedViewMode);
+                setViewMode(savedViewMode as 'table' | 'gallery');
             }
 
             const savedCols = localStorage.getItem(`vmind_visible_cols_${tableId}`);
@@ -1355,7 +1307,7 @@ const TableDetailPage: React.FC = () => {
             {viewMode === 'gallery' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {processedRows.map(row => {
-                        const firstVisibleImageCol = table.columns.find(c => c.type === 'image' && visibleColumns.has(c.name));
+                        const firstVisibleImageCol = table.columns.find(c => c.type === 'image');
                         const imageUrl = firstVisibleImageCol ? row.data[firstVisibleImageCol.name] : null;
 
                         return (

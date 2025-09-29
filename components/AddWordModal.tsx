@@ -55,44 +55,44 @@ const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onSave, ta
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
-                <h3 className="text-2xl font-bold text-blue-600 dark:text-sky-400 mb-4">Add New Word</h3>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 v-modal-container" aria-modal="true" role="dialog">
+            <div className="bg-secondary dark:bg-slate-800 p-6 rounded-xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col v-modal-content">
+                <h3 className="text-2xl font-black text-text-primary dark:text-slate-200 mb-4">Add New Word</h3>
                 
-                <form className="overflow-y-auto space-y-4">
+                <form className="overflow-y-auto space-y-4 pr-2">
                     <div>
-                        <label htmlFor="keyword" className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Keyword</label>
+                        <label htmlFor="keyword" className="block text-lg font-bold text-text-secondary dark:text-slate-400 mb-1">Keyword</label>
                         <input
                             id="keyword"
                             name="keyword"
                             type="text"
                             value={formData['keyword'] || ''}
                             onChange={handleChange}
-                            className="w-full bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-200 p-2 rounded-md border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-sky-500 focus:outline-none"
+                            className="w-full bg-primary dark:bg-slate-700 text-text-primary dark:text-slate-200 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-accent dark:focus:ring-accent focus:outline-none"
                             required
                         />
                     </div>
 
                     {table.columns.map(col => (
                          <div key={col.name}>
-                            <label htmlFor={col.name} className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">{col.name}</label>
+                            <label htmlFor={col.name} className="block text-lg font-bold text-text-secondary dark:text-slate-400 mb-1">{col.name}</label>
                             <input
                                 id={col.name}
                                 name={col.name}
                                 type="text"
                                 value={formData[col.name] || ''}
                                 onChange={handleChange}
-                                className="w-full bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-200 p-2 rounded-md border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-sky-500 focus:outline-none"
+                                className="w-full bg-primary dark:bg-slate-700 text-text-primary dark:text-slate-200 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-accent dark:focus:ring-accent focus:outline-none"
                             />
                         </div>
                     ))}
                 </form>
 
                 <div className="mt-6 flex justify-end space-x-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                    <button onClick={onClose} disabled={isSaving} className="bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors font-semibold py-2 px-4 rounded-lg disabled:opacity-50">
+                    <button onClick={onClose} disabled={isSaving} className="bg-slate-200 dark:bg-slate-700 text-text-primary dark:text-slate-200 font-bold py-3 px-5 rounded-lg border-b-4 border-slate-300 dark:border-slate-900 active:translate-y-0.5 active:border-b-2 disabled:opacity-50">
                         Cancel
                     </button>
-                    <button onClick={handleSubmit} disabled={isSaving} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg disabled:bg-slate-500 disabled:cursor-not-allowed hover:bg-blue-700">
+                    <button onClick={handleSubmit} disabled={isSaving} className="bg-accent text-white font-bold py-3 px-5 rounded-lg border-b-4 border-accent-darker active:translate-y-0.5 active:border-b-2 disabled:opacity-50">
                         {isSaving ? 'Saving...' : 'Save Word'}
                     </button>
                 </div>
