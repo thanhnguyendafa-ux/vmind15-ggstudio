@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { useData } from '../hooks/useData';
 import { VmindSettings, AutoBackupSettings, ConflictResolutionPolicy, BackupRecord, VocabRow, VocabRowStats, ColumnDef } from '../types';
 import { dataService } from '../services/dataService';
 import { DatabaseIcon, ExportIcon, FileJsonIcon, FileTextIcon, LogOutIcon, UserIcon } from '../components/Icons';
 import { DEFAULT_COLUMNS } from '../constants';
+import { Link } from 'react-router-dom';
 
 const SettingToggle: React.FC<{
     checked: boolean;
@@ -54,7 +56,6 @@ const SettingsPage: React.FC = () => {
         fetchData, 
         tables,
         session,
-        signInWithGoogle,
         signOut,
         isSampleDataActive,
         toggleSampleData
@@ -209,13 +210,15 @@ const SettingsPage: React.FC = () => {
                         </div>
                     ) : (
                         <div>
-                            <p className="text-text-secondary dark:text-slate-400">Currently in Offline Mode.</p>
-                            <button 
-                                onClick={signInWithGoogle}
-                                className="mt-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-500 transition-colors"
-                            >
-                                Login with Google to Sync
-                            </button>
+                            <p className="text-text-secondary dark:text-slate-400">Log in or create an account to sync your data across devices.</p>
+                            <div className="mt-3 flex gap-4">
+                               <Link to="/login" className="bg-accent text-white font-semibold py-2 px-4 rounded-lg hover:bg-accent-darker transition-colors">
+                                    Login
+                                </Link>
+                                <Link to="/signup" className="bg-slate-200 dark:bg-slate-600 text-text-primary dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors">
+                                    Sign Up
+                                </Link>
+                            </div>
                         </div>
                     )}
                 </div>

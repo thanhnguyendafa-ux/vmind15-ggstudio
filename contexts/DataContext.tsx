@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { VocabTable, GlobalStats, Relation, RewardEvent, VmindSettings, StudySession, BackupRecord, Theme, Session, StudyPreset } from '../types';
 import { dataService } from '../services/dataService';
@@ -18,7 +19,8 @@ interface DataContextType {
   fetchData: () => void;
   toggleTheme: () => void;
   updateSettings: (newSettings: Partial<VmindSettings>) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   toggleSampleData: (active: boolean) => Promise<void>;
 }
@@ -105,19 +107,36 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => subscription.unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
+  const signIn = async (email: string, password: string) => {
     if (!supabase) {
         alert("Supabase is not configured. Cannot log in.");
         return;
     }
-    const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+    const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
     });
     if (error) {
-        console.error('Error logging in with Google:', error);
-        alert('Error logging in. Check the console for details.');
+        console.error('Error logging in:', error);
+        throw error;
     }
   };
+
+  const signUp = async (email: string, password: string) => {
+    if (!supabase) {
+        alert("Supabase is not configured. Cannot sign up.");
+        return;
+    }
+    const { error } = await supabase.auth.signUp({
+        email,
+        password,
+    });
+    if (error) {
+        console.error('Error signing up:', error);
+        throw error;
+    }
+  };
+
 
   const signOut = async () => {
     if (!supabase) return;
@@ -173,7 +192,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchData,
     toggleTheme,
     updateSettings,
-    signInWithGoogle,
+    signIn,
+    signUp,
     signOut,
     toggleSampleData,
   }), [tables, globalStats, relations, rewardEvents, studySessions, studyPresets, settings, backupHistory, session, loading, isInitialized, isSampleDataActive, fetchData, toggleTheme, updateSettings, toggleSampleData]);

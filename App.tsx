@@ -15,6 +15,8 @@ import TableDetailPage from './pages/TableDetailPage';
 import RelationCreatePage from './pages/RelationCreatePage';
 import FlashcardSessionPage from './pages/FlashcardSessionPage';
 import SessionHistoryPage from './pages/SessionHistoryPage';
+import LoginPage from './pages/LoginPage';
+import SignUpPage from './pages/SignUpPage';
 
 const App: React.FC = () => {
   return (
@@ -35,6 +37,8 @@ const App: React.FC = () => {
           </Route>
           <Route path="/study-session" element={<QStudyPage />} />
           <Route path="/flashcards-session" element={<FlashcardSessionPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
         </Routes>
       </HashRouter>
     </DataProvider>
