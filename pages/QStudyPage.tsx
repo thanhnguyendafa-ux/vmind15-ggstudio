@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { StudyConfig, VocabRow, Relation, StudyMode, VocabTable, WordProgress, WordStatus } from '../types';
 import { useData } from '../hooks/useData';
 import { dataService } from '../services/dataService';
 import { XIcon, CheckCircleIcon, TrophyIcon, XCircleIcon } from '../components/Icons';
+import { FIBONACCI_MILESTONES } from '../constants';
 
 interface QueueItem {
     word: VocabRow;
@@ -98,7 +98,7 @@ const QueueTracker: React.FC<{
 const QStudyPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { tables, relations, fetchData } = useData();
+    const { tables, relations, fetchData, globalStats, settings } = useData();
 
     const config = location.state as StudyConfig;
 
@@ -120,11 +120,21 @@ const QStudyPage: React.FC = () => {
         passed1Change: number;
         passed2Change: number;
     }[] | null>(null);
+    const [sessionXp, setSessionXp] = useState(globalStats?.xp ?? 0);
+    const initialXp = useRef(globalStats?.xp ?? 0);
+    const [xpChangeNotif, setXpChangeNotif] = useState<{ value: number; key: number } | null>(null);
+    const [xpChangePreview, setXpChangePreview] = useState<{ value: number; type: 'gain' | 'loss' } | null>(null);
 
 
     useEffect(() => {
-        // FIX: Add a guard to ensure this initialization logic only runs once.
-        // This prevents the session from resetting when global data is refetched upon completion.
+        if (globalStats && !sessionInitialized.current) {
+            setSessionXp(globalStats.xp);
+            initialXp.current = globalStats.xp;
+        }
+    }, [globalStats]);
+
+
+    useEffect(() => {
         if (sessionInitialized.current) {
             return;
         }
@@ -146,7 +156,6 @@ const QStudyPage: React.FC = () => {
         const sessionRelations = relations.filter(r => config.relationIds.includes(r.id));
 
         if (!config.useRandomRelation && sessionRelations.length > 1) {
-            // Ensure each selected relation is used at least once
             const usedRelationIds = new Set<string>();
             const relationQueue = [...sessionRelations];
 
@@ -164,7 +173,6 @@ const QStudyPage: React.FC = () => {
                 }
             }
 
-            // Add remaining words
             sessionWords.forEach(word => {
                 if (usedRelationIds.has(word.id)) return;
                 const applicableRelations = sessionRelations.filter(r => r.tableId === word.tableId);
@@ -176,7 +184,6 @@ const QStudyPage: React.FC = () => {
             });
 
         } else {
-             // Default random logic
              sessionWords.forEach(word => {
                 const applicableRelations = relations.filter(r => 
                     (config.relationIds.includes(r.id) || config.useRandomRelation) && 
@@ -234,6 +241,31 @@ const QStudyPage: React.FC = () => {
         }
     }, [currentItem, config.words, relations]);
 
+    const xpData = useMemo(() => {
+        const userXP = sessionXp;
+        const nextMilestone = FIBONACCI_MILESTONES.find(m => m.xp > userXP);
+        const currentMilestoneIndex = nextMilestone 
+            ? FIBONACCI_MILESTONES.indexOf(nextMilestone) - 1 
+            : FIBONACCI_MILESTONES.length - 1;
+
+        const previousMilestone = currentMilestoneIndex >= 0 
+            ? FIBONACCI_MILESTONES[currentMilestoneIndex] 
+            : { xp: 0, name: 'Start' };
+
+        const range = nextMilestone ? nextMilestone.xp - previousMilestone.xp : 0;
+
+        let progressPercentage = 0;
+        if (nextMilestone) {
+            const progressInLevel = userXP - previousMilestone.xp;
+            if (range > 0) {
+                progressPercentage = Math.max(0, Math.min(100, (progressInLevel / range) * 100));
+            }
+        } else if (FIBONACCI_MILESTONES.length > 0) {
+            progressPercentage = 100;
+        }
+        return { userXP, previousMilestone, nextMilestone, progressPercentage, range };
+    }, [sessionXp]);
+
 
     const advanceQueue = useCallback((isCorrect: boolean) => {
         if (!currentItem) return;
@@ -265,6 +297,23 @@ const QStudyPage: React.FC = () => {
 
     const handleAnswer = (isCorrect: boolean) => {
         if (!currentItem || isRevealed) return;
+        
+        const change = isCorrect ? 10 : -5;
+
+        if (xpData.range > 0) {
+            const changePercentage = (Math.abs(change) / xpData.range) * 100;
+            setXpChangePreview({ value: changePercentage, type: change > 0 ? 'gain' : 'loss' });
+        }
+
+        setXpChangeNotif({ value: change, key: Date.now() });
+
+        setTimeout(() => {
+            setSessionXp(prev => prev + change);
+        }, 100);
+
+        setTimeout(() => {
+            setXpChangePreview(null);
+        }, 700); // 100ms delay + 500ms transition + buffer
 
         setLastAnswerCorrect(isCorrect);
         setIsRevealed(true);
@@ -293,14 +342,33 @@ const QStudyPage: React.FC = () => {
     }
     
     const handleQuit = async () => {
+        setIsQuitModalOpen(false);
         setIsCommitting(true);
-        await dataService.updateStatsOnQuit(config, wordProgress);
+        const xpFromSession = sessionXp - initialXp.current;
+        const quitPenalty = settings?.quitPenaltyEnabled ? -30 : 0;
+        
+        if (quitPenalty !== 0) {
+            setXpChangeNotif({ value: quitPenalty, key: Date.now() });
+            setSessionXp(prev => prev + quitPenalty);
+            await new Promise(resolve => setTimeout(resolve, 1200));
+        }
+
+        const totalChange = xpFromSession + quitPenalty;
+        await dataService.updateStatsOnQuit(config, wordProgress, totalChange);
         await fetchData(); // Refresh global state
         navigate('/');
     };
     
     const handleCompletion = useCallback(async () => {
         setIsCommitting(true);
+
+        setXpChangeNotif({ value: 50, key: Date.now() });
+        const finalXpWithBonus = sessionXp + 50;
+        setSessionXp(finalXpWithBonus);
+
+        await new Promise(resolve => setTimeout(resolve, 1200));
+
+        const totalChange = finalXpWithBonus - initialXp.current;
 
         const reportData = config.words.map(word => {
             const progress = wordProgress[word.id];
@@ -313,9 +381,9 @@ const QStudyPage: React.FC = () => {
         });
         setSessionReport(reportData);
 
-        await dataService.updateStatsOnCompletion(config, wordProgress);
+        await dataService.updateStatsOnCompletion(config, wordProgress, totalChange);
         await fetchData(); // Refresh global state
-    }, [config, wordProgress, fetchData]);
+    }, [config, wordProgress, fetchData, sessionXp]);
 
 
     const allWordsPassed = useMemo(() =>
@@ -331,7 +399,10 @@ const QStudyPage: React.FC = () => {
     useEffect(() => {
         const handlePageHide = (event: PageTransitionEvent) => {
             if (!event.persisted && !allWordsPassed && !isCommitting) {
-                dataService.updateStatsOnQuit(config, wordProgress);
+                const xpFromSession = sessionXp - initialXp.current;
+                const quitPenalty = settings?.quitPenaltyEnabled ? -30 : 0;
+                const totalChange = xpFromSession + quitPenalty;
+                dataService.updateStatsOnQuit(config, wordProgress, totalChange);
             }
         };
         window.addEventListener('pagehide', handlePageHide);
@@ -346,7 +417,7 @@ const QStudyPage: React.FC = () => {
             window.removeEventListener('pagehide', handlePageHide);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, [allWordsPassed, isCommitting, config, wordProgress]);
+    }, [allWordsPassed, isCommitting, config, wordProgress, sessionXp, settings]);
 
     if (!config || !config.words) return <div className="p-4">Loading session...</div>;
 
@@ -415,14 +486,12 @@ const QStudyPage: React.FC = () => {
                     onContinue={handleExplanationContinue}
                 />
             )}
-            <header className="p-4 border-b border-slate-200 dark:border-slate-700">
+            <header className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-3">
                 <div className="flex items-center gap-4">
                     <button onClick={() => setIsQuitModalOpen(true)} className="text-text-secondary hover:text-text-primary p-2">
                         <XIcon className="w-7 h-7" />
                     </button>
-                    <div className="w-full">
-                        <QueueTracker queue={queue} wordProgress={wordProgress} />
-                    </div>
+                    <div className="flex-grow"></div>
                     <div className="flex items-center space-x-2">
                         <label htmlFor="speed-mode-toggle" className="text-sm font-bold text-text-secondary whitespace-nowrap">Speed Mode</label>
                         <button id="speed-mode-toggle" onClick={() => setIsSpeedModeOn(!isSpeedModeOn)} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors`} role="switch" aria-checked={isSpeedModeOn}>
@@ -430,6 +499,53 @@ const QStudyPage: React.FC = () => {
                             <span className={`${isSpeedModeOn ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}></span>
                         </button>
                     </div>
+                </div>
+                
+                <div className="relative">
+                    <div className="flex justify-between items-center text-sm mb-1 px-1">
+                        <span className="font-bold text-text-secondary">{xpData.previousMilestone.name}</span>
+                        <span className="font-bold text-yellow-400">XP: {xpData.userXP.toLocaleString()}</span>
+                        <span className="font-bold text-text-secondary">{xpData.nextMilestone ? xpData.nextMilestone.name : 'Max'}</span>
+                    </div>
+                    <div className="w-full bg-slate-300 dark:bg-slate-700 rounded-full h-4 overflow-hidden relative">
+                        <div 
+                            className="bg-gradient-to-r from-yellow-300 to-yellow-500 h-4 rounded-full transition-all duration-500 ease-out" 
+                            style={{ width: `${xpData.progressPercentage}%` }}
+                        />
+                        {xpChangePreview?.type === 'gain' && (
+                            <div
+                                className="absolute top-0 h-full bg-green-500/90 rounded-r-full"
+                                style={{
+                                    left: `${xpData.progressPercentage}%`,
+                                    width: `${xpChangePreview.value}%`,
+                                }}
+                            />
+                        )}
+                        {xpChangePreview?.type === 'loss' && (
+                            <div
+                                className="absolute top-0 h-full bg-red-500/90"
+                                style={{
+                                    left: `${xpData.progressPercentage - xpChangePreview.value}%`,
+                                    width: `${xpChangePreview.value}%`,
+                                }}
+                            />
+                        )}
+                    </div>
+                    {xpChangeNotif && (
+                        <span
+                          key={xpChangeNotif.key}
+                          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-black text-2xl pointer-events-none xp-change-animation ${
+                            xpChangeNotif.value > 0 ? 'text-green-400' : 'text-red-400'
+                          }`}
+                          style={{ textShadow: '0 0 5px rgba(0,0,0,0.5)' }}
+                        >
+                          {xpChangeNotif.value > 0 ? '+' : ''}{xpChangeNotif.value} XP
+                        </span>
+                    )}
+                </div>
+                
+                <div className="w-full pt-1">
+                    <QueueTracker queue={queue} wordProgress={wordProgress} />
                 </div>
             </header>
 

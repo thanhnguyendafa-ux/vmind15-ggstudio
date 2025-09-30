@@ -568,11 +568,9 @@ export const dataService = {
     mockStudySessions.push(newSession);
     persistState();
   },
-  updateStatsOnCompletion: async function(config: StudyConfig, sessionProgress: Record<string, WordProgress>): Promise<void> {
+  updateStatsOnCompletion: async function(config: StudyConfig, sessionProgress: Record<string, WordProgress>, xpChange: number): Promise<void> {
     await new Promise(res => setTimeout(res, 200));
     
-    let wordsMastered = 0;
-
     config.words.forEach(word => {
         const progress = sessionProgress[word.id];
         if (!progress) return;
@@ -583,18 +581,12 @@ export const dataService = {
         
         const currentStats = { ...row.stats };
 
-        // For a completed session, every word has reached 'pass2' state.
         if (progress.status === 'pass2') {
-            wordsMastered++;
-            // A word mastered in a session contributes one to Passed1 and one to Passed2.
             currentStats.Passed1 += 1;
             currentStats.Passed2 += 1;
             currentStats.InQueue += 1;
-            currentStats.QuitQueue = false; // Reset quit flag on completion
+            currentStats.QuitQueue = false;
         }
-        // Note: The `else if (progress.status === 'pass1')` case is not needed
-        // because in a completed session, all words have a status of 'pass2'.
-        // Stats are not updated on quit, so we don't handle other statuses here.
         
         currentStats.Failed += progress.newFails;
         currentStats.LastPracticeDate = new Date().toISOString();
@@ -606,8 +598,7 @@ export const dataService = {
     
     // --- Gamification Update ---
     const oldXp = mockGlobalStats.xp;
-    const xpGained = 50 + (wordsMastered * 10);
-    mockGlobalStats.xp += xpGained;
+    mockGlobalStats.xp += xpChange;
     const newXp = mockGlobalStats.xp;
 
     mockRewardEvents.push({
@@ -615,7 +606,7 @@ export const dataService = {
         timestamp: new Date().toISOString(),
         type: 'session_complete',
         description: `Completed session with ${tableNames.join(', ')}`,
-        xpChange: xpGained,
+        xpChange: xpChange,
     });
 
     FIBONACCI_MILESTONES.forEach(milestone => {
@@ -642,12 +633,11 @@ export const dataService = {
     persistState();
   },
 
-  updateStatsOnQuit: async function(config: StudyConfig, wordProgress: Record<string, WordProgress>): Promise<void> {
+  updateStatsOnQuit: async function(config: StudyConfig, wordProgress: Record<string, WordProgress>, xpChange: number): Promise<void> {
     await new Promise(res => setTimeout(res, 200));
     
     config.words.forEach(word => {
         const progress = wordProgress[word.id];
-        // Any word not fully mastered (pass2) gets the quit flag
         if (progress && progress.status !== 'pass2') {
             const table = mockTables.find(t => t.id === word.tableId);
             const row = table?.rows.find(r => r.id === word.id);
@@ -660,14 +650,15 @@ export const dataService = {
     const tableNames = mockTables.filter(t => config.tableIds.includes(t.id)).map(t => t.name);
 
     // --- Gamification Update ---
-    if (mockSettings.quitPenaltyEnabled) {
-        mockGlobalStats.xp -= 30;
+    mockGlobalStats.xp += xpChange; // Apply the calculated change
+    
+    if (xpChange !== 0) { // Only log if there was a change
         mockRewardEvents.push({
             id: `evt-${Date.now()}`,
             timestamp: new Date().toISOString(),
             type: 'session_quit',
             description: `Quit session with ${tableNames.join(', ')}`,
-            xpChange: -30,
+            xpChange: xpChange,
         });
     }
 

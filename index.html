@@ -86,6 +86,14 @@
         80% { transform: scale(0.95); }
         100% { transform: scale(1); opacity: 1; }
       }
+
+      @keyframes xp-float {
+        0% { transform: translateY(0) scale(1); opacity: 1; }
+        100% { transform: translateY(-30px) scale(1.2); opacity: 0; }
+      }
+      .xp-change-animation {
+        animation: xp-float 1s ease-out forwards;
+      }
     </style>
   <script type="importmap">
 {
