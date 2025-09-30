@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { StudyConfig, VocabRow, Relation, StudyMode, VocabTable, WordProgress, WordStatus } from '../types';
 import { useData } from '../hooks/useData';
@@ -113,9 +113,22 @@ const QStudyPage: React.FC = () => {
     const [isCommitting, setIsCommitting] = useState(false);
     const [showFullExplanation, setShowFullExplanation] = useState(false);
     const [isSpeedModeOn, setIsSpeedModeOn] = useState(false);
+    const sessionInitialized = useRef(false);
+    const [sessionReport, setSessionReport] = useState<{
+        word: VocabRow;
+        failedChange: number;
+        passed1Change: number;
+        passed2Change: number;
+    }[] | null>(null);
 
 
     useEffect(() => {
+        // FIX: Add a guard to ensure this initialization logic only runs once.
+        // This prevents the session from resetting when global data is refetched upon completion.
+        if (sessionInitialized.current) {
+            return;
+        }
+
         if (!config || !config.words) {
             navigate('/study');
             return;
@@ -182,6 +195,7 @@ const QStudyPage: React.FC = () => {
             });
         }
         setQueue(initialQueue);
+        sessionInitialized.current = true;
         
     }, [config, navigate, relations]);
     
@@ -287,6 +301,18 @@ const QStudyPage: React.FC = () => {
     
     const handleCompletion = useCallback(async () => {
         setIsCommitting(true);
+
+        const reportData = config.words.map(word => {
+            const progress = wordProgress[word.id];
+            return {
+                word: word,
+                failedChange: progress.newFails,
+                passed1Change: 1,
+                passed2Change: 1,
+            };
+        });
+        setSessionReport(reportData);
+
         await dataService.updateStatsOnCompletion(config, wordProgress);
         await fetchData(); // Refresh global state
     }, [config, wordProgress, fetchData]);
@@ -324,19 +350,37 @@ const QStudyPage: React.FC = () => {
 
     if (!config || !config.words) return <div className="p-4">Loading session...</div>;
 
-    if (allWordsPassed && isCommitting) {
-         return (
-             <div className="fixed inset-0 bg-primary dark:bg-slate-900 flex items-center justify-center p-4 z-50">
-                 <div className="text-center celebrate-animation">
-                    <TrophyIcon className="w-24 h-24 text-yellow-400 mx-auto animate-pulse" />
-                    <h1 className="text-4xl font-black text-accent mt-4">Session Complete!</h1>
-                    <p className="text-xl mt-2 text-text-secondary">Great work! Your progress has been saved.</p>
-                    <button onClick={() => navigate('/')} className="mt-8 text-lg bg-accent text-white font-bold py-4 px-10 rounded-xl border-b-4 border-accent-darker active:translate-y-0.5 active:border-b-2">
-                        Continue
-                    </button>
-                </div>
-            </div>
-        )
+    if (sessionReport) {
+        return (
+            <div className="fixed inset-0 bg-primary dark:bg-slate-900 flex items-center justify-center p-4 z-50">
+                <div className="bg-secondary dark:bg-slate-800 p-6 rounded-xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col celebrate-animation">
+                   <div className="text-center mb-4">
+                       <TrophyIcon className="w-16 h-16 text-yellow-400 mx-auto" />
+                       <h1 className="text-3xl font-black text-accent mt-2">Session Complete!</h1>
+                       <p className="text-lg mt-1 text-text-secondary">Your stats have been updated.</p>
+                   </div>
+   
+                   <div className="overflow-y-auto space-y-2 bg-primary dark:bg-slate-900/50 p-3 rounded-lg flex-grow">
+                       {sessionReport.map(item => (
+                           <div key={item.word.id} className="text-sm">
+                               <p className="font-bold text-text-primary dark:text-slate-200">{item.word.keyword}</p>
+                               <div className="flex justify-start space-x-4 pl-2 text-text-secondary">
+                                   {item.failedChange > 0 && <span className="text-danger">Failed: +{item.failedChange}</span>}
+                                   <span className="text-green-400">Passed1: +{item.passed1Change}</span>
+                                   <span className="text-green-400">Passed2: +{item.passed2Change}</span>
+                               </div>
+                           </div>
+                       ))}
+                   </div>
+   
+                   <div className="mt-6 flex justify-end">
+                       <button onClick={() => navigate('/')} className="w-full text-lg bg-accent text-white font-bold py-3 px-6 rounded-lg border-b-4 border-accent-darker active:translate-y-0.5 active:border-b-2">
+                           Continue
+                       </button>
+                   </div>
+               </div>
+           </div>
+       );
     }
     
     const currentTable = currentItem ? tables.find(t => t.id === currentItem.word.tableId) : null;

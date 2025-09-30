@@ -583,20 +583,18 @@ export const dataService = {
         
         const currentStats = { ...row.stats };
 
-        // A word is "mastered" if it reached pass2 state in the session.
-        if(progress.status === 'pass2') {
+        // For a completed session, every word has reached 'pass2' state.
+        if (progress.status === 'pass2') {
             wordsMastered++;
+            // A word mastered in a session contributes one to Passed1 and one to Passed2.
+            currentStats.Passed1 += 1;
             currentStats.Passed2 += 1;
-            // The logic should also increment Passed1 on the first success.
-            // This is a more accurate reflection of the blueplan's intent.
-            if (progress.newPasses > 0 && currentStats.Passed1 === (row.stats.Passed1 || 0)) {
-                currentStats.Passed1 += 1;
-            }
             currentStats.InQueue += 1;
             currentStats.QuitQueue = false; // Reset quit flag on completion
-        } else if (progress.status === 'pass1') {
-            currentStats.Passed1 += 1;
         }
+        // Note: The `else if (progress.status === 'pass1')` case is not needed
+        // because in a completed session, all words have a status of 'pass2'.
+        // Stats are not updated on quit, so we don't handle other statuses here.
         
         currentStats.Failed += progress.newFails;
         currentStats.LastPracticeDate = new Date().toISOString();
