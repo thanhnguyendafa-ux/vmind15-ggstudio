@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useData } from '../hooks/useData';
 import { Link, useNavigate } from 'react-router-dom';
 import CreateTableModal from '../components/CreateTableModal';
 import { dataService } from '../services/dataService';
-import { ColumnDef } from '../types';
-import { XIcon, SearchIcon } from '../components/Icons';
+import { ColumnDef, VocabTable } from '../types';
+import { XIcon, SearchIcon, ImportIcon } from '../components/Icons';
 
 const TablesPage: React.FC = () => {
     const { tables, relations, loading, fetchData } = useData();
     const [searchQuery, setSearchQuery] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const filteredTables = tables.filter(table =>
         table.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -25,6 +26,37 @@ const TablesPage: React.FC = () => {
         } catch (error) {
             console.error("Failed to create table:", error);
             alert("There was an error creating the table. Please try again.");
+        }
+    };
+
+    const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+    
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const content = e.target?.result as string;
+            if (!content) {
+                alert("File is empty or could not be read.");
+                return;
+            }
+            try {
+                const newTable = await dataService.importTableFromCSV(content);
+                await fetchData();
+                navigate(`/tables/${newTable.id}`);
+            } catch (error) {
+                console.error("Failed to import CSV:", error);
+                if (error instanceof Error) {
+                    alert(`Error importing CSV: ${error.message}`);
+                } else {
+                    alert("An unknown error occurred during import.");
+                }
+            }
+        };
+        reader.readAsText(file);
+        // Reset file input value to allow re-uploading the same file
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
         }
     };
 
@@ -83,12 +115,27 @@ const TablesPage: React.FC = () => {
                     )}
                 </div>
             )}
-             <button 
-                onClick={() => setIsModalOpen(true)}
-                className="mt-6 bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors duration-200"
-            >
-                + Create New Table
-            </button>
+            <div className="flex items-center gap-4">
+                <button 
+                    onClick={() => setIsModalOpen(true)}
+                    className="mt-6 bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors duration-200"
+                >
+                    + Create New Table
+                </button>
+                 <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-6 bg-secondary dark:bg-slate-700 text-text-primary dark:text-slate-200 font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors duration-200 flex items-center"
+                >
+                    <ImportIcon className="w-5 h-5 mr-2" /> Import from CSV
+                </button>
+            </div>
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileImport}
+                accept=".csv"
+                className="hidden"
+            />
             <CreateTableModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}

@@ -1,9 +1,8 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useData } from '../hooks/useData';
 import { VmindSettings, AutoBackupSettings, ConflictResolutionPolicy, BackupRecord, VocabRow, VocabRowStats, ColumnDef } from '../types';
 import { dataService } from '../services/dataService';
-import { DatabaseIcon, ExportIcon, FileJsonIcon, FileTextIcon, LogOutIcon, UserIcon } from '../components/Icons';
+import { DatabaseIcon, ExportIcon, FileJsonIcon, FileTextIcon, LogOutIcon, UserIcon, ImportIcon } from '../components/Icons';
 import { DEFAULT_COLUMNS } from '../constants';
 import { Link } from 'react-router-dom';
 
@@ -63,6 +62,7 @@ const SettingsPage: React.FC = () => {
     const theme = settings?.theme || 'dark';
     const [isBackingUp, setIsBackingUp] = useState<false | 'json' | 'csv'>(false);
     const [isSyncing, setIsSyncing] = useState(false);
+    const restoreInputRef = useRef<HTMLInputElement>(null);
 
     const handleSettingsChange = (change: Partial<VmindSettings>) => {
         if (updateSettings) {
@@ -152,6 +152,42 @@ const SettingsPage: React.FC = () => {
         await fetchData(); 
         setIsBackingUp(false);
         alert(`Manual ${format.toUpperCase()} backup files have been downloaded.`);
+    };
+
+    const handleRestoreFromJson = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const content = e.target?.result as string;
+            if (!content) {
+                alert("File is empty or could not be read.");
+                return;
+            }
+
+            if (!window.confirm("Are you sure you want to restore from this backup? All your current data will be overwritten.")) {
+                if (restoreInputRef.current) restoreInputRef.current.value = '';
+                return;
+            }
+
+            try {
+                const parsedData = JSON.parse(content);
+                await dataService.restoreDataFromJson(parsedData);
+                await fetchData();
+                alert("Restore successful! The application has been updated with your backup data.");
+            } catch (error) {
+                console.error("Failed to restore from JSON:", error);
+                 if (error instanceof Error) {
+                    alert(`Error restoring from backup: ${error.message}`);
+                } else {
+                    alert("An unknown error occurred during restore. The file might be corrupted or in the wrong format.");
+                }
+            } finally {
+                if (restoreInputRef.current) restoreInputRef.current.value = '';
+            }
+        };
+        reader.readAsText(file);
     };
 
     const handleRestore = (backup: BackupRecord) => {
@@ -268,14 +304,18 @@ const SettingsPage: React.FC = () => {
                     
                     {/* Manual Backup */}
                     <div className="p-3 bg-primary dark:bg-slate-900/50 rounded-md">
-                        <p className="font-semibold mb-2">Manual Backup</p>
-                        <div className="flex gap-4">
-                             <button onClick={() => handleManualBackup('json')} disabled={!!isBackingUp} className="flex-1 flex items-center justify-center bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-semibold py-2 px-4 rounded-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors disabled:opacity-60">
+                        <p className="font-semibold mb-2">Manual Backup & Restore</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                             <button onClick={() => handleManualBackup('json')} disabled={!!isBackingUp} className="flex items-center justify-center bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-semibold py-2 px-4 rounded-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors disabled:opacity-60">
                                 <ExportIcon className="w-5 h-5 mr-2" /> {isBackingUp === 'json' ? 'Backing up...' : 'Backup JSON'}
                             </button>
-                             <button onClick={() => handleManualBackup('csv')} disabled={!!isBackingUp} className="flex-1 flex items-center justify-center bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-semibold py-2 px-4 rounded-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors disabled:opacity-60">
+                             <button onClick={() => handleManualBackup('csv')} disabled={!!isBackingUp} className="flex items-center justify-center bg-accent dark:bg-sky-500 text-white dark:text-slate-950 font-semibold py-2 px-4 rounded-lg hover:bg-blue-800 dark:hover:bg-sky-600 transition-colors disabled:opacity-60">
                                 <ExportIcon className="w-5 h-5 mr-2" /> {isBackingUp === 'csv' ? 'Backing up...' : 'Backup CSV'}
                             </button>
+                            <button onClick={() => restoreInputRef.current?.click()} className="lg:col-span-1 sm:col-span-2 flex items-center justify-center bg-secondary dark:bg-slate-600 text-text-primary dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-500 transition-colors">
+                                <ImportIcon className="w-5 h-5 mr-2" /> Load Backup JSON
+                            </button>
+                            <input type="file" ref={restoreInputRef} onChange={handleRestoreFromJson} accept=".json" className="hidden" />
                         </div>
                     </div>
 

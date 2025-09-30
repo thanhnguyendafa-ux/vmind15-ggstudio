@@ -506,6 +506,32 @@ export const dataService = {
       studyPresets: mockStudyPresets,
     };
   },
+  restoreDataFromJson: async (backupData: any): Promise<void> => {
+    await new Promise(res => setTimeout(res, 200));
+    try {
+        // Basic validation
+        if (!backupData || typeof backupData !== 'object' || !Array.isArray(backupData.tables)) {
+            throw new Error("Invalid backup file format.");
+        }
+
+        mockTables = backupData.tables || [];
+        mockRelations = backupData.relations || [];
+        mockGlobalStats = backupData.globalStats || { xp: 0, inQueueReal: 0, quitQueueReal: 0 };
+        mockStudySessions = backupData.studySessions || [];
+        mockSettings = { ...defaultSettings, ...(backupData.settings || {}) };
+        mockRewardEvents = backupData.rewardEvents || [];
+        mockBackupRecords = backupData.backupRecords || mockBackupRecords; // Keep old history if not in new file
+        mockStudyPresets = backupData.studyPresets || [];
+        
+        persistState();
+    } catch (e) {
+        console.error("Failed to restore data:", e);
+        if (e instanceof Error) {
+            throw new Error(`Restore failed: ${e.message}`);
+        }
+        throw new Error("An unknown error occurred during restore.");
+    }
+  },
   saveStudySession: async function(sessionData: Omit<StudySession, 'id' | 'createdAt'>): Promise<void> {
     await new Promise(res => setTimeout(res, 50));
     const newSession: StudySession = {
