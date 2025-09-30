@@ -438,6 +438,8 @@ const calculatePriorityScore = (row: VocabRow, maxInQueueInTable: number): numbe
 
 export const dataService = {
   setSampleMode,
+  // FIX: Export `calculatePriorityScore` by adding it to the `dataService` object so other modules can use it.
+  calculatePriorityScore,
   getTables: async (): Promise<VocabTable[]> => {
     await new Promise(res => setTimeout(res, 100));
     return mockTables;
@@ -644,6 +646,61 @@ export const dataService = {
     return newTable;
   },
 
+  importTableFromCSV: async (csvContent: string): Promise<VocabTable> => {
+    await new Promise(res => setTimeout(res, 200));
+
+    const lines = csvContent.trim().replace(/\r/g, '').split('\n');
+    if (lines.length < 1) {
+        throw new Error("CSV file is empty or invalid.");
+    }
+    
+    // Simple CSV parsing assuming no commas within quoted fields
+    const headers = lines[0].split(',').map(h => h.trim());
+    if (headers.length === 0 || headers[0] === '') {
+        throw new Error("CSV must have a header row with at least one column for the keyword.");
+    }
+
+    // Keyword is first column. Rest are data columns.
+    const columnDefs: ColumnDef[] = headers.slice(1).map(name => ({ name, type: 'text' }));
+
+    const now = new Date();
+    const tableName = `Imported on ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    
+    const newTable: VocabTable = {
+        id: tableName.toLowerCase().replace(/[^\w-]/g, '-').replace(/--+/g, '-') + '-' + Date.now(),
+        name: tableName,
+        columns: columnDefs,
+        rows: [],
+    };
+
+    const dataRows = lines.slice(1);
+    const newVocabRows: VocabRow[] = [];
+    const seenKeywords = new Set<string>();
+    for (const line of dataRows) {
+        if (!line.trim()) continue;
+        const values = line.split(',').map(v => v.trim());
+        const keyword = values[0];
+        if (!keyword || seenKeywords.has(keyword.toLowerCase())) continue;
+
+        seenKeywords.add(keyword.toLowerCase());
+
+        const data: Record<string, string> = {};
+        columnDefs.forEach((colDef, index) => {
+            data[colDef.name] = values[index + 1] || '';
+        });
+
+        const newRow = createNewRow(newTable.id, keyword, data);
+        newVocabRows.push(newRow);
+    }
+
+    newTable.rows = newVocabRows;
+
+    mockTables.push(newTable);
+    persistState();
+
+    return newTable;
+  },
+
   createRelation: async (tableId: string, name: string, questionCols: string[], answerCols: string[], modes: StudyMode[]): Promise<Relation> => {
     await new Promise(res => setTimeout(res, 200));
     const newRelation: Relation = {
@@ -765,25 +822,29 @@ export const dataService = {
   removeColumn: async (tableId: string, columnName: string): Promise<void> => {
      await new Promise(res => setTimeout(res, 100));
      mockTables = mockTables.map(table => {
-       if (table.id === tableId) {
-         if (columnName.toLowerCase() === 'keyword' || !table.columns.some(c => c.name === columnName)) {
-           console.error("Cannot remove keyword or non-existent column.");
-           return table;
-         }
-         
-         const newRows = table.rows.map(row => {
-           const newData = { ...row.data };
-           delete newData[columnName];
-           return { ...row, data: newData };
-         });
+        if (table.id === tableId) {
+            mockRelations = mockRelations.map(rel => {
+                if (rel.tableId === tableId) {
+                    return {
+                        ...rel,
+                        questionCols: rel.questionCols.filter(c => c !== columnName),
+                        answerCols: rel.answerCols.filter(c => c !== columnName),
+                    };
+                }
+                return rel;
+            }).filter(rel => rel.questionCols.length > 0 && rel.answerCols.length > 0);
 
-         return {
-           ...table,
-           columns: table.columns.filter(c => c.name !== columnName),
-           rows: newRows
-         };
-       }
-       return table;
+            return {
+                ...table,
+                columns: table.columns.filter(col => col.name !== columnName),
+                rows: table.rows.map(row => {
+                    const newData = { ...row.data };
+                    delete newData[columnName];
+                    return { ...row, data: newData };
+                })
+            };
+        }
+        return table;
      });
      persistState();
   },
@@ -792,135 +853,126 @@ export const dataService = {
     await new Promise(res => setTimeout(res, 100));
     mockTables = mockTables.map(table => {
       if (table.id === tableId) {
-        if (newName.trim() === '' || oldName.toLowerCase() === 'keyword' || newName.toLowerCase() === 'keyword' || table.columns.some(c => c.name === newName)) {
-          console.error("Invalid rename operation.");
-          return table;
-        }
-        const colExists = table.columns.some(c => c.name === oldName);
-        if (!colExists) return table;
-
+        const newColumns = table.columns.map(c => c.name === oldName ? { ...c, name: newName } : c);
         const newRows = table.rows.map(row => {
-          const newData = { ...row.data };
-          if (Object.prototype.hasOwnProperty.call(newData, oldName)) {
-              newData[newName] = newData[oldName];
-              delete newData[oldName];
+          if (Object.prototype.hasOwnProperty.call(row.data, oldName)) {
+            const newData = { ...row.data };
+            newData[newName] = newData[oldName];
+            delete newData[oldName];
+            return { ...row, data: newData };
           }
-          return { ...row, data: newData };
+          return row;
         });
 
-        return {
-          ...table,
-          columns: table.columns.map(c => c.name === oldName ? { ...c, name: newName } : c),
-          rows: newRows
-        };
+        mockRelations = mockRelations.map(rel => {
+            if (rel.tableId === tableId) {
+                return {
+                    ...rel,
+                    questionCols: rel.questionCols.map(c => c === oldName ? newName : c),
+                    answerCols: rel.answerCols.map(c => c === oldName ? newName : c),
+                };
+            }
+            return rel;
+        });
+        
+        return { ...table, columns: newColumns, rows: newRows };
       }
       return table;
     });
     persistState();
   },
   
+  importData: async (tableId: string, rowsToImport: Array<Record<string, string>>, strategy: ConflictResolutionStrategy): Promise<void> => {
+    await new Promise(res => setTimeout(res, 500));
+    const table = mockTables.find(t => t.id === tableId);
+    if (!table) {
+      throw new Error("Table not found");
+    }
+    
+    rowsToImport.forEach(importRow => {
+      const keyword = importRow.keyword?.trim();
+      if (!keyword) return;
+
+      const rowIndex = table.rows.findIndex(r => r.keyword.toLowerCase() === keyword.toLowerCase());
+      const isConflict = rowIndex !== -1;
+      
+      if (isConflict) {
+        if (strategy === 'addNewOnly') {
+          return;
+        }
+        
+        const existingRow = table.rows[rowIndex];
+        const newData = { ...existingRow.data };
+
+        if (strategy === 'overwrite') {
+          table.columns.forEach(col => {
+            newData[col.name] = importRow[col.name] || '';
+          });
+          existingRow.data = newData;
+        } else if (strategy === 'merge') {
+          table.columns.forEach(col => {
+            if (importRow[col.name] !== undefined && importRow[col.name].trim() !== '') {
+              newData[col.name] = importRow[col.name];
+            }
+          });
+          existingRow.data = newData;
+        }
+      } else {
+        const data: Record<string, string> = {};
+        table.columns.forEach(col => {
+            data[col.name] = importRow[col.name] || '';
+        });
+        const newRow = createNewRow(tableId, keyword, data);
+        table.rows.push(newRow);
+      }
+    });
+    
+    persistState();
+  },
+
   resetWordStats: async (tableId: string, wordId: string): Promise<void> => {
     await new Promise(res => setTimeout(res, 100));
-    mockTables = mockTables.map(table => {
-      if (table.id === tableId) {
-        return {
-          ...table,
-          rows: table.rows.map(row => {
-            if (row.id === wordId) {
-              return {
-                ...row,
-                stats: recalculateStats({
-                    Passed1: 0, Passed2: 0, Failed: 0,
-                    InQueue: 0, QuitQueue: false,
-                    LastPracticeDate: null, flashcardStatus: 'None'
-                })
-              };
-            }
-            return row;
-          })
-        };
-      }
-      return table;
-    });
+    const table = mockTables.find(t => t.id === tableId);
+    if (!table) return;
+
+    const row = table.rows.find(r => r.id === wordId);
+    if (row) {
+        row.stats = recalculateStats({
+            Passed1: 0,
+            Passed2: 0,
+            Failed: 0,
+            InQueue: 0,
+            QuitQueue: false,
+            LastPracticeDate: null,
+            flashcardStatus: 'None',
+        });
+    }
+
     persistState();
   },
 
-  bulkTagWords: async (tableId: string, wordIds: string[], tagsToAdd: string[]): Promise<void> => {
-    await new Promise(res => setTimeout(res, 200));
-    mockTables = mockTables.map(table => {
-      if (table.id === tableId) {
-        const wordIdSet = new Set(wordIds);
-        return {
-          ...table,
-          rows: table.rows.map(row => {
-            if (wordIdSet.has(row.id)) {
-              const newTags = new Set([...row.tags, ...tagsToAdd]);
-              return { ...row, tags: Array.from(newTags).sort() };
-            }
-            return row;
-          })
-        };
-      }
-      return table;
-    });
-    persistState();
-  },
-
-  importData: async (tableId: string, rows: Array<Record<string, string>>, strategy: ConflictResolutionStrategy): Promise<void> => {
+  bulkTagWords: async (tableId: string, wordIds: string[], tags: string[]): Promise<void> => {
     await new Promise(res => setTimeout(res, 200));
     const table = mockTables.find(t => t.id === tableId);
     if (!table) return;
 
-    const columnNames = table.columns.map(c => c.name);
-
-    rows.forEach(row => {
-        const { keyword, ...data } = row;
-        if (!keyword) return;
-
-        const existingRow = table.rows.find(r => r.keyword.toLowerCase() === keyword.toLowerCase());
-
-        if (existingRow) { // Conflict
-            if (strategy === 'addNewOnly') {
-                return; // Skip
-            }
-            if (strategy === 'overwrite') {
-                Object.keys(existingRow.data).forEach(key => {
-                    existingRow.data[key] = data[key] || '';
-                });
-            } else if (strategy === 'merge') {
-                Object.entries(data).forEach(([key, value]) => {
-                    if (value) { // Merges non-empty values
-                        existingRow.data[key] = value as string;
-                    }
-                });
-            }
-        } else { // No conflict, add new row
-            const newRowData: Record<string, string> = {};
-            columnNames.forEach(col => {
-                newRowData[col] = data[col] || '';
-            });
-            table.rows.push(createNewRow(tableId, keyword, newRowData));
-        }
+    table.rows.forEach(row => {
+      if (wordIds.includes(row.id)) {
+        const newTags = new Set([...row.tags, ...tags]);
+        row.tags = Array.from(newTags);
+      }
     });
+    
     persistState();
   },
-  updateFlashcardStatus: async (tableId: string, wordId: string, status: 'Hard' | 'Good' | 'Easy'): Promise<void> => {
-    await new Promise(res => setTimeout(res, 50));
-    const table = mockTables.find(t => t.id === tableId);
-    const row = table?.rows.find(r => r.id === wordId);
-    if (row) {
-        row.stats.flashcardStatus = status;
-    } else {
-        console.warn(`Could not find word ${wordId} in table ${tableId} to update flashcard status.`);
-    }
-    persistState();
-  },
+
   getStudyPresets: async (): Promise<StudyPreset[]> => {
     await new Promise(res => setTimeout(res, 100));
     return mockStudyPresets;
   },
+  
   saveStudyPreset: async (preset: Omit<StudyPreset, 'id'>): Promise<StudyPreset> => {
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, 100));
     const newPreset: StudyPreset = {
         ...preset,
         id: `preset-${Date.now()}`
@@ -929,10 +981,25 @@ export const dataService = {
     persistState();
     return newPreset;
   },
+
   deleteStudyPreset: async (presetId: string): Promise<void> => {
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, 100));
     mockStudyPresets = mockStudyPresets.filter(p => p.id !== presetId);
     persistState();
   },
-  calculatePriorityScore,
+  
+  updateFlashcardStatus: async (tableId: string, wordId: string, status: VocabRowStats['flashcardStatus']): Promise<void> => {
+    await new Promise(res => setTimeout(res, 50));
+    const table = mockTables.find(t => t.id === tableId);
+    if (!table) return;
+
+    const row = table.rows.find(r => r.id === wordId);
+    if (row) {
+        row.stats.flashcardStatus = status;
+    }
+    persistState();
+  },
+
 };
+
+loadState();
