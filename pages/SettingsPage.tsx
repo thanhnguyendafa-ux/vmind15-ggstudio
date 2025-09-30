@@ -288,13 +288,13 @@ const SettingsPage: React.FC = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 pt-3 border-t border-slate-700">
                                 <div>
                                     <label htmlFor="backup-interval" className="block text-sm text-text-secondary mb-1">Interval</label>
-                                    <select id="backup-interval" value={settings.autoBackup.interval} onChange={(e) => handleAutoBackupChange({ interval: e.target.value as AutoBackupSettings['interval']})} className="w-full bg-secondary p-2 rounded-md border border-slate-600">
+                                    <select id="backup-interval" value={settings.autoBackup.interval} onChange={(e) => handleAutoBackupChange({ interval: e.target.value as AutoBackupSettings['interval']})} className="w-full bg-secondary dark:bg-slate-700 text-text-primary dark:text-slate-200 p-2 rounded-md border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-accent dark:focus:ring-sky-500 focus:outline-none">
                                         {autoBackupIntervals.map(i => <option key={i} value={i}>{i}</option>)}
                                     </select>
                                 </div>
                                  <div>
                                     <label htmlFor="backup-keep" className="block text-sm text-text-secondary mb-1">Keep last</label>
-                                    <select id="backup-keep" value={settings.autoBackup.keep} onChange={(e) => handleAutoBackupChange({ keep: parseInt(e.target.value) })} className="w-full bg-secondary p-2 rounded-md border border-slate-600">
+                                    <select id="backup-keep" value={settings.autoBackup.keep} onChange={(e) => handleAutoBackupChange({ keep: parseInt(e.target.value) })} className="w-full bg-secondary dark:bg-slate-700 text-text-primary dark:text-slate-200 p-2 rounded-md border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-accent dark:focus:ring-sky-500 focus:outline-none">
                                         {autoBackupKeepOptions.map(k => <option key={k} value={k}>{k} backups</option>)}
                                     </select>
                                 </div>
@@ -323,7 +323,7 @@ const SettingsPage: React.FC = () => {
                      <div className="p-3 bg-primary dark:bg-slate-900/50 rounded-md">
                         <label htmlFor="conflict-policy" className="font-semibold">Sync Conflict Policy</label>
                         <p className="text-xs text-text-secondary mb-2">Default action when local and cloud data differ.</p>
-                         <select id="conflict-policy" value={settings?.conflictPolicy} onChange={(e) => handleSettingsChange({ conflictPolicy: e.target.value as ConflictResolutionPolicy })} className="w-full bg-secondary p-2 rounded-md border border-slate-600">
+                         <select id="conflict-policy" value={settings?.conflictPolicy} onChange={(e) => handleSettingsChange({ conflictPolicy: e.target.value as ConflictResolutionPolicy })} className="w-full bg-secondary dark:bg-slate-700 text-text-primary dark:text-slate-200 p-2 rounded-md border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-accent dark:focus:ring-sky-500 focus:outline-none">
                             {conflictPolicyOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                     </div>

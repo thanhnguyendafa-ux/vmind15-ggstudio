@@ -17,13 +17,12 @@ let mockStudyPresets: StudyPreset[];
 const persistState = () => {
     if (isSampleMode) return;
     try {
-        const { theme, ...persistableSettings } = mockSettings;
         const state = {
             tables: mockTables,
             relations: mockRelations,
             globalStats: mockGlobalStats,
             studySessions: mockStudySessions,
-            settings: persistableSettings,
+            settings: mockSettings,
             rewardEvents: mockRewardEvents,
             backupRecords: mockBackupRecords,
             studyPresets: mockStudyPresets
