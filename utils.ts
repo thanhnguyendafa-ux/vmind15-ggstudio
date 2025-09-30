@@ -1,5 +1,30 @@
 import { ColumnDef, VocabRow, VocabRowStats, FilterLayer, VocabTable } from './types';
 
+export const parseCsvLine = (line: string): string[] => {
+    const result: string[] = [];
+    let currentField = '';
+    let inQuotedField = false;
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+            if (inQuotedField && i + 1 < line.length && line[i + 1] === '"') {
+                // This is an escaped quote
+                currentField += '"';
+                i++; // Skip the next char
+            } else {
+                inQuotedField = !inQuotedField;
+            }
+        } else if (char === ',' && !inQuotedField) {
+            result.push(currentField.trim());
+            currentField = '';
+        } else {
+            currentField += char;
+        }
+    }
+    result.push(currentField.trim());
+    return result;
+};
+
 export const getColumnType = (columnName: string, columnDefs: ColumnDef[]): 'text' | 'image' | 'number' | 'boolean' => {
     // Check for hardcoded stat/default columns first
     if (['RankPoint', 'Level', 'SuccessRate', 'FailureRate', 'Passed1', 'Passed2', 'Failed', 'TotalAttempt', 'InQueue', 'PriorityScore'].includes(columnName)) {

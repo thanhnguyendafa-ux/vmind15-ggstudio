@@ -66,39 +66,31 @@ const FullExplanationModal: React.FC<{
     </div>
 );
 
-const WordStatusTracker: React.FC<{
-    words: VocabRow[];
+const QueueTracker: React.FC<{
+    queue: QueueItem[];
     wordProgress: Record<string, WordProgress>;
-    showKeywords: boolean;
-}> = ({ words, wordProgress, showKeywords }) => {
-    const getStatusIndicator = (status: WordStatus) => {
+}> = ({ queue, wordProgress }) => {
+    const getStatusColor = (status: WordStatus) => {
         switch (status) {
             case 'fail':
-                return <div className="w-3 h-3 bg-danger rounded-full" title="Fail"></div>;
+                return 'bg-danger';
             case 'pass1':
-                return <div className="w-3 h-3 bg-yellow-400 rounded-full" title="Pass 1"></div>;
-            case 'pass2':
-                return <div className="w-3 h-3 bg-success rounded-full" title="Pass 2"></div>;
+                return 'bg-yellow-400';
             case 'untouched':
             default:
-                return <div className="w-3 h-3 bg-slate-400 dark:bg-slate-600 rounded-full" title="Untouched"></div>;
+                return 'bg-slate-300 dark:bg-slate-600';
         }
     };
 
     return (
-        <div className="w-full overflow-x-auto pb-2">
-            <div className="flex items-start space-x-2">
-                {words.map(word => (
-                    <div key={word.id} className="flex flex-col items-center flex-shrink-0" style={{width: showKeywords ? '5rem' : '1rem'}}>
-                        {getStatusIndicator(wordProgress[word.id]?.status)}
-                        {showKeywords && (
-                            <p className="text-xs text-text-secondary dark:text-slate-400 mt-1 text-center truncate w-full" title={word.keyword}>
-                                {word.keyword}
-                            </p>
-                        )}
-                    </div>
-                ))}
-            </div>
+        <div className="flex justify-center items-center space-x-3 h-6 flex-wrap gap-y-2">
+            {queue.map((item, index) => (
+                <div 
+                    key={`${item.word.id}-${index}`}
+                    className={`w-4 h-4 rounded-full transition-colors duration-300 ${getStatusColor(wordProgress[item.word.id]?.status)}`}
+                    title={item.word.keyword}
+                />
+            ))}
         </div>
     );
 };
@@ -121,7 +113,6 @@ const QStudyPage: React.FC = () => {
     const [isCommitting, setIsCommitting] = useState(false);
     const [showFullExplanation, setShowFullExplanation] = useState(false);
     const [isSpeedModeOn, setIsSpeedModeOn] = useState(false);
-    const [showKeywords, setShowKeywords] = useState(false);
 
 
     useEffect(() => {
@@ -331,12 +322,6 @@ const QStudyPage: React.FC = () => {
         };
     }, [allWordsPassed, isCommitting, config, wordProgress]);
 
-    const progressPercent = useMemo(() => {
-        if (!config?.words) return 0;
-        const passedCount = (Object.values(wordProgress) as WordProgress[]).filter(p => p.status === 'pass2').length;
-        return (passedCount / config.words.length) * 100;
-    }, [wordProgress, config]);
-
     if (!config || !config.words) return <div className="p-4">Loading session...</div>;
 
     if (allWordsPassed && isCommitting) {
@@ -391,31 +376,15 @@ const QStudyPage: React.FC = () => {
                     <button onClick={() => setIsQuitModalOpen(true)} className="text-text-secondary hover:text-text-primary p-2">
                         <XIcon className="w-7 h-7" />
                     </button>
-                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
-                        <div className="bg-accent h-full rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }}></div>
+                    <div className="w-full">
+                        <QueueTracker queue={queue} wordProgress={wordProgress} />
                     </div>
-                </div>
-                 <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="w-full sm:w-auto">
-                        {wordProgress && Object.keys(wordProgress).length > 0 &&
-                            <WordStatusTracker words={config.words} wordProgress={wordProgress} showKeywords={showKeywords} />
-                        }
-                    </div>
-                    <div className="flex items-center justify-end gap-4 w-full sm:w-auto flex-shrink-0">
-                        <div className="flex items-center space-x-2">
-                            <label htmlFor="show-words-toggle" className="text-sm font-bold text-text-secondary whitespace-nowrap">Show Words</label>
-                            <button id="show-words-toggle" onClick={() => setShowKeywords(!showKeywords)} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors`} role="switch" aria-checked={showKeywords}>
-                                <span className={`${showKeywords ? 'bg-accent' : 'bg-slate-400 dark:bg-slate-600'} absolute h-6 w-11 rounded-full`}></span>
-                                <span className={`${showKeywords ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}></span>
-                            </button>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <label htmlFor="speed-mode-toggle" className="text-sm font-bold text-text-secondary whitespace-nowrap">Speed Mode</label>
-                            <button id="speed-mode-toggle" onClick={() => setIsSpeedModeOn(!isSpeedModeOn)} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors`} role="switch" aria-checked={isSpeedModeOn}>
-                                <span className={`${isSpeedModeOn ? 'bg-accent' : 'bg-slate-400 dark:bg-slate-600'} absolute h-6 w-11 rounded-full`}></span>
-                                <span className={`${isSpeedModeOn ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}></span>
-                            </button>
-                        </div>
+                    <div className="flex items-center space-x-2">
+                        <label htmlFor="speed-mode-toggle" className="text-sm font-bold text-text-secondary whitespace-nowrap">Speed Mode</label>
+                        <button id="speed-mode-toggle" onClick={() => setIsSpeedModeOn(!isSpeedModeOn)} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors`} role="switch" aria-checked={isSpeedModeOn}>
+                            <span className={`${isSpeedModeOn ? 'bg-accent' : 'bg-slate-400 dark:bg-slate-600'} absolute h-6 w-11 rounded-full`}></span>
+                            <span className={`${isSpeedModeOn ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}></span>
+                        </button>
                     </div>
                 </div>
             </header>

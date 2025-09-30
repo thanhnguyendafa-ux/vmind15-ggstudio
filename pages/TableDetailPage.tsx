@@ -9,7 +9,7 @@ import EditWordModal from '../components/EditWordModal';
 // FIX: Import FilterLayer from ../types instead of ../components/FilterToggle
 import { VocabRow, Relation, VocabTable, VocabRowStats, ColumnDef, SortLayer, SortDirection, FilterLayer } from '../types';
 import FilterToggle from '../components/FilterToggle';
-import { getColumnType, getRowValue, checkCondition } from '../utils';
+import { getColumnType, getRowValue, checkCondition, parseCsvLine } from '../utils';
 import AddColumnModal from '../components/AddColumnModal';
 
 
@@ -713,14 +713,17 @@ const TableDetailPage: React.FC = () => {
     const parseCSV = (text: string): { headers: string[], rows: Array<Record<string, string>> } => {
         const lines = text.trim().replace(/\r/g, '').split('\n');
         if (lines.length < 2) return { headers: [], rows: [] };
-        const headers = lines[0].split(',').map(h => h.trim());
+        
+        const headers = parseCsvLine(lines[0]);
         const rows = lines.slice(1).map(line => {
-            const values = line.split(',').map(v => v.trim());
+            if (!line.trim()) return null;
+            const values = parseCsvLine(line);
             return headers.reduce((obj, header, index) => {
                 obj[header] = values[index] || '';
                 return obj;
             }, {} as Record<string, string>);
-        });
+        }).filter((row): row is Record<string, string> => row !== null);
+    
         return { headers, rows };
     };
 

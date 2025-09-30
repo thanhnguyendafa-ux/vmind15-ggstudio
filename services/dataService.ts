@@ -1,5 +1,6 @@
 import { VocabTable, VocabRow, Relation, StudyMode, GlobalStats, VocabRowStats, StudyConfig, StudySession, WordProgress, ColumnDef, VmindSettings, RewardEvent, BackupRecord, StudyPreset } from '../types';
 import { FIBONACCI_MILESTONES } from '../constants';
+import { parseCsvLine } from '../utils';
 
 const USER_DATA_KEY = 'vmind-user-data';
 let isSampleMode = false;
@@ -238,6 +239,24 @@ const initializeData = () => {
     hsk1Rows.slice(0, 5).forEach(row => row.stats.QuitQueue = true);
     // --- END SIMULATED DATA ---
 
+    const phoneticsRows = [
+        createRowWithRandomStats('articulatory-phonetics', 'larynx', { 'Tên tiếng Việt': 'thanh quản', 'Chức năng': 'Bộ phận phát ra âm thanh, nơi không khí từ phổi đi qua để tạo tiếng', 'Analogy in English for grade 5': 'Like a whistle in your throat that air passes through to make sound', 'Analogy Việt': 'Giống như một cái còi trong cổ họng, không khí đi qua để tạo ra âm thanh' }),
+        createRowWithRandomStats('articulatory-phonetics', 'vocal tract', { 'Tên tiếng Việt': 'bộ máy phát âm', 'Chức năng': 'Đường dẫn phát âm, bao gồm miệng và mũi, nơi âm thanh được hình thành', 'Analogy in English for grade 5': 'Like the hallway where your voice travels before leaving your mouth and nose', 'Analogy Việt': 'Giống như hành lang nơi giọng nói của bạn đi qua trước khi ra khỏi miệng và mũi' }),
+        createRowWithRandomStats('articulatory-phonetics', 'oral cavity', { 'Tên tiếng Việt': 'khoang miệng', 'Chức năng': 'Khoang bên trong miệng, nơi hình thành và điều chỉnh âm thanh', 'Analogy in English for grade 5': 'Like the inside of your mouth where food goes, but this time it helps shape your words', 'Analogy Việt': 'Giống như bên trong miệng nơi thức ăn đi vào, nhưng lần này giúp tạo hình lời nói' }),
+        createRowWithRandomStats('articulatory-phonetics', 'nasal cavity', { 'Tên tiếng Việt': 'khoang mũi', 'Chức năng': 'Khoang bên trong mũi, nơi âm thanh có thể đi qua trước khi ra ngoài', 'Analogy in English for grade 5': 'Like the tunnels in your nose that air goes through when you breathe or talk', 'Analogy Việt': 'Giống như đường hầm trong mũi, nơi không khí đi qua khi bạn thở hoặc nói' }),
+        createRowWithRandomStats('articulatory-phonetics', 'articulators', { 'Tên tiếng Việt': 'cơ quan phát âm', 'Chức năng': 'Các bộ phận (môi, lưỡi, răng…) thay đổi hình dạng để tạo ra âm thanh', 'Analogy in English for grade 5': 'Like the tools in your mouth (tongue, lips, teeth) that shape sounds like clay into different forms', 'Analogy Việt': 'Giống như những công cụ trong miệng (lưỡi, môi, răng) nặn âm thanh như đất sét thành nhiều hình dạng khác nhau' }),
+        createRowWithRandomStats('articulatory-phonetics', 'articulatory phonetics', { 'Tên tiếng Việt': 'ngữ âm học cấu âm', 'Chức năng': 'Ngành học nghiên cứu cách các bộ phận phát âm tạo ra âm thanh', 'Analogy in English for grade 5': 'Like a science class that studies how the mouth and throat parts work together to make sounds', 'Analogy Việt': 'Giống như một môn khoa học nghiên cứu cách miệng và cổ họng phối hợp tạo ra âm thanh' }),
+        createRowWithRandomStats('articulatory-phonetics', 'pharynx', { 'Tên tiếng Việt': 'hầu', 'Chức năng': 'Đường dẫn không khí và thức ăn, hỗ trợ âm thanh đi qua', 'Analogy in English for grade 5': 'Like a hallway at the back of your mouth where both food and air can pass', 'Analogy Việt': 'Giống như hành lang phía sau miệng nơi cả thức ăn và không khí đi qua' }),
+        createRowWithRandomStats('articulatory-phonetics', 'soft palate / velum', { 'Tên tiếng Việt': 'vòm miệng mềm', 'Chức năng': 'Bộ phận ở phía sau miệng, điều khiển luồng không khí qua miệng hoặc mũi', 'Analogy in English for grade 5': 'Like a soft door at the back of your mouth that can open to let air go through your nose or mouth', 'Analogy Việt': 'Giống như một cánh cửa mềm ở phía sau miệng, có thể mở để không khí đi qua mũi hoặc miệng' }),
+        createRowWithRandomStats('articulatory-phonetics', 'hard palate', { 'Tên tiếng Việt': 'vòm miệng cứng', 'Chức năng': 'Phần cứng ở mái miệng, giúp lưỡi chạm vào để tạo âm', 'Analogy in English for grade 5': 'Like the hard roof inside your mouth where your tongue can press to make sounds', 'Analogy Việt': 'Giống như mái cứng trong miệng, nơi lưỡi chạm vào để tạo âm thanh' }),
+        createRowWithRandomStats('articulatory-phonetics', 'alveolar ridge', { 'Tên tiếng Việt': 'sống lợi', 'Chức năng': 'Phần phía trên lợi ngay sau răng, nơi lưỡi tiếp xúc để phát âm', 'Analogy in English for grade 5': 'Like a small bump right behind your teeth where your tongue taps to make sounds', 'Analogy Việt': 'Giống như cái gờ nhỏ ngay sau răng, nơi lưỡi chạm vào để tạo âm thanh' }),
+        createRowWithRandomStats('articulatory-phonetics', 'tongue', { 'Tên tiếng Việt': 'lưỡi', 'Chức năng': 'Bộ phận linh hoạt nhất, điều chỉnh âm thanh bằng cách thay đổi vị trí', 'Analogy in English for grade 5': 'Like a gymnast in your mouth that can move in many ways to shape sounds', 'Analogy Việt': 'Giống như một vận động viên nhào lộn trong miệng, có thể di chuyển nhiều kiểu để tạo âm thanh' }),
+        createRowWithRandomStats('articulatory-phonetics', 'teeth', { 'Tên tiếng Việt': 'răng', 'Chức năng': 'Dùng cùng với lưỡi và môi để tạo ra nhiều âm thanh', 'Analogy in English for grade 5': 'Like the fence in your mouth that your tongue and lips use to make certain sounds', 'Analogy Việt': 'Giống như hàng rào trong miệng mà lưỡi và môi dùng để tạo âm' }),
+        createRowWithRandomStats('articulatory-phonetics', 'lips', { 'Tên tiếng Việt': 'môi', 'Chức năng': 'Đóng/mở để tạo âm, điều chỉnh hơi thở ra', 'Analogy in English for grade 5': 'Like the gates that open and close at the front of your mouth to help shape words', 'Analogy Việt': 'Giống như cánh cổng mở và đóng ở phía trước miệng để giúp tạo ra từ' }),
+        createRowWithRandomStats('articulatory-phonetics', 'jaws', { 'Tên tiếng Việt': 'hàm', 'Chức năng': 'Cử động để hỗ trợ lưỡi, môi, răng khi nói', 'Analogy in English for grade 5': 'Like the hinges of a door that move to let the mouth open and close while talking', 'Analogy Việt': 'Giống như bản lề cửa, giúp miệng mở ra và đóng lại khi nói' }),
+        createRowWithRandomStats('articulatory-phonetics', 'nose', { 'Tên tiếng Việt': 'mũi', 'Chức năng': 'Không tạo âm trực tiếp nhưng quan trọng để luồng hơi và cộng hưởng âm', 'Analogy in English for grade 5': 'Like an echo chamber that helps your voice sound different when air passes through', 'Analogy Việt': 'Giống như một phòng vang giúp giọng bạn nghe khác khi không khí đi qua' }),
+    ];
+
     mockTables = [
         { id: 'eng-c2', name: 'English C2', columns: [
             { name: 'Definition', type: 'text' },
@@ -260,6 +279,12 @@ const initializeData = () => {
             { name: 'Example Translation', type: 'text' },
             { name: 'Note', type: 'text' },
         ], rows: hsk1Rows },
+        { id: 'articulatory-phonetics', name: 'Articulatory Phonetics', columns: [
+            { name: 'Tên tiếng Việt', type: 'text' },
+            { name: 'Chức năng', type: 'text' },
+            { name: 'Analogy in English for grade 5', type: 'text' },
+            { name: 'Analogy Việt', type: 'text' },
+        ], rows: phoneticsRows },
     ];
 
     mockRelations = [
@@ -269,6 +294,8 @@ const initializeData = () => {
         { id: 'rel4', tableId: 'eng-b1b2', name: 'Collocations -> Word', modes: [StudyMode.MCQ], questionCols: ['Common Collocations'], answerCols: ['keyword'] },
         { id: 'rel5', tableId: 'hsk1', name: 'Word+Pinyin -> Definition', modes: [StudyMode.MCQ, StudyMode.Typing], questionCols: ['keyword', 'Pinyin'], answerCols: ['Definition'] },
         { id: 'rel6', tableId: 'hsk1', name: 'Translation -> Word', modes: [StudyMode.MCQ], questionCols: ['Example Translation'], answerCols: ['keyword'] },
+        { id: 'rel7', tableId: 'articulatory-phonetics', name: 'English -> Vietnamese', modes: [StudyMode.MCQ, StudyMode.Typing], questionCols: ['keyword'], answerCols: ['Tên tiếng Việt'] },
+        { id: 'rel8', tableId: 'articulatory-phonetics', name: 'Function -> English Term', modes: [StudyMode.MCQ], questionCols: ['Chức năng'], answerCols: ['keyword'] },
     ];
 
     // --- SIMULATED DATA ---
@@ -679,8 +706,7 @@ export const dataService = {
         throw new Error("CSV file is empty or invalid.");
     }
     
-    // Simple CSV parsing assuming no commas within quoted fields
-    const headers = lines[0].split(',').map(h => h.trim());
+    const headers = parseCsvLine(lines[0]);
     if (headers.length === 0 || headers[0] === '') {
         throw new Error("CSV must have a header row with at least one column for the keyword.");
     }
@@ -703,7 +729,7 @@ export const dataService = {
     const seenKeywords = new Set<string>();
     for (const line of dataRows) {
         if (!line.trim()) continue;
-        const values = line.split(',').map(v => v.trim());
+        const values = parseCsvLine(line);
         const keyword = values[0];
         if (!keyword || seenKeywords.has(keyword.toLowerCase())) continue;
 
