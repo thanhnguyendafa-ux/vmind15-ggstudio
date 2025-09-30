@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useData } from '../hooks/useData';
 import { dataService } from '../services/dataService';
@@ -558,6 +558,7 @@ const TableDetailPage: React.FC = () => {
     const [userColumnOrder, setUserColumnOrder] = useState<string[]>([]);
     const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
 
     // --- EFFECTS FOR LOADING AND SAVING PREFERENCES ---
 
@@ -594,6 +595,11 @@ const TableDetailPage: React.FC = () => {
             } else {
                 setUserColumnOrder(table.columns.map(c => c.name));
             }
+            
+            const savedWidths = localStorage.getItem(`vmind_col_widths_${tableId}`);
+            if (savedWidths) {
+                setColumnWidths(JSON.parse(savedWidths));
+            }
 
         } catch (e) {
             console.error("Failed to load settings from localStorage", e);
@@ -626,6 +632,12 @@ const TableDetailPage: React.FC = () => {
     }, [userColumnOrder, tableId]);
     
     useEffect(() => {
+        if (tableId && Object.keys(columnWidths).length > 0) {
+            localStorage.setItem(`vmind_col_widths_${tableId}`, JSON.stringify(columnWidths));
+        }
+    }, [columnWidths, tableId]);
+    
+    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
                 setIsExportMenuOpen(false);
@@ -635,6 +647,45 @@ const TableDetailPage: React.FC = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    // --- RESIZING LOGIC ---
+    const resizingColumnRef = useRef<{ name: string; startX: number; startWidth: number; } | null>(null);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!resizingColumnRef.current) return;
+        const { name, startX, startWidth } = resizingColumnRef.current;
+        const newWidth = startWidth + (e.clientX - startX);
+        if (newWidth >= 50) { // Set a min width
+            setColumnWidths(prev => ({...prev, [name]: newWidth}));
+        }
+    }, []);
+
+    const handleMouseUp = useCallback(() => {
+        resizingColumnRef.current = null;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+    }, [handleMouseMove]);
+
+    const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, columnName: string) => {
+        e.preventDefault();
+        const th = e.currentTarget.parentElement;
+        if (!th) return;
+        
+        resizingColumnRef.current = {
+            name: columnName,
+            startX: e.clientX,
+            startWidth: th.offsetWidth,
+        };
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    }, [handleMouseMove, handleMouseUp]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [handleMouseMove, handleMouseUp]);
 
     const handleToggleColumn = (column: string) => {
         setVisibleColumns(prev => {
@@ -1199,10 +1250,10 @@ const TableDetailPage: React.FC = () => {
 
             {viewMode === 'table' && (
                 <div className="overflow-auto bg-secondary rounded-lg border border-slate-300 dark:border-slate-700 max-h-[65vh] scrollbar scrollbar-thin scrollbar-thumb-slate-500 dark:scrollbar-thumb-slate-400 scrollbar-track-slate-300 dark:scrollbar-track-slate-800">
-                    <table className="w-full text-left text-sm whitespace-nowrap">
+                    <table className="w-full text-left text-sm whitespace-nowrap" style={{ tableLayout: 'fixed' }}>
                         <thead className="bg-slate-100 dark:bg-slate-700">
                             <tr>
-                                <th className="p-3 w-12 sticky left-0 top-0 z-20 bg-slate-100 dark:bg-slate-700">
+                                <th className="p-3 w-12 sticky left-0 top-0 z-20 bg-slate-100 dark:bg-slate-700" style={{width: '48px'}}>
                                     <input
                                         type="checkbox"
                                         className="h-4 w-4 rounded accent-accent bg-primary border-slate-400 dark:border-slate-500"
@@ -1211,8 +1262,14 @@ const TableDetailPage: React.FC = () => {
                                         aria-label="Select all rows"
                                     />
                                 </th>
-                                <th className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10 left-12`}>
+                                <th className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10 left-12 relative group`}
+                                    style={{ width: `${columnWidths['keyword'] || 150}px` }}>
                                     <div className="flex items-center">keyword</div>
+                                    <div
+                                        onMouseDown={(e) => handleMouseDown(e, 'keyword')}
+                                        className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-accent dark:hover:bg-sky-500 transition-colors"
+                                        title="Resize keyword column"
+                                    />
                                 </th>
                                 {orderedVisibleUserCols.map(col => (
                                     <th 
@@ -1222,28 +1279,40 @@ const TableDetailPage: React.FC = () => {
                                         onDragOver={handleDragOver}
                                         onDrop={e => handleDrop(e, col)}
                                         onDragEnd={handleDragEnd}
-                                        className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10 cursor-move transition-opacity ${draggedColumn === col ? 'opacity-50' : ''}`}
+                                        className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10 cursor-move transition-opacity relative group ${draggedColumn === col ? 'opacity-50' : ''}`}
+                                        style={{ width: `${columnWidths[col] || 150}px` }}
                                     >
                                         <div className="flex items-center">
-                                            {col}
+                                            <span className="truncate">{col}</span>
                                             <ColumnHeaderMenu 
                                                 columnName={col}
                                                 onRename={handleRenameColumn}
                                                 onDelete={handleDeleteColumn}
                                             />
                                         </div>
+                                        <div
+                                            onMouseDown={(e) => handleMouseDown(e, col)}
+                                            className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-accent dark:hover:bg-sky-500 transition-colors"
+                                            title={`Resize ${col} column`}
+                                        />
                                     </th>
                                 ))}
                                 {visibleStatCols.map((col) => (
-                                    <th key={col} className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10`}>
+                                    <th key={col} className={`p-3 font-semibold text-text-secondary sticky top-0 bg-slate-100 dark:bg-slate-700 z-10 relative group`}
+                                        style={{ width: `${columnWidths[col] || 150}px` }}>
                                         <div className="flex items-center">{col}</div>
+                                        <div
+                                            onMouseDown={(e) => handleMouseDown(e, col)}
+                                            className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-accent dark:hover:bg-sky-500 transition-colors"
+                                            title={`Resize ${col} column`}
+                                        />
                                     </th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-300 dark:divide-slate-600">
                             {processedRows.map(row => (
-                                <tr key={row.id} className="hover:bg-slate-200/50 dark:hover:bg-slate-700/50">
+                                <tr key={row.id} className="hover:bg-slate-200/50 dark:hover:bg-slate-700/50 cursor-pointer" onClick={() => setSelectedWordForCard(row as VocabRow)}>
                                     <td className="p-3 w-12 sticky left-0 z-10 bg-secondary">
                                         <input
                                             type="checkbox"
@@ -1259,8 +1328,8 @@ const TableDetailPage: React.FC = () => {
 
                                         if (col === 'keyword') {
                                             content = (
-                                                <div className="flex items-center justify-between min-w-[150px]">
-                                                    <span>{value}</span>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="truncate">{value}</span>
                                                     <WordActionsMenu
                                                         word={row as VocabRow}
                                                         onEdit={handleEditWord}
@@ -1280,7 +1349,7 @@ const TableDetailPage: React.FC = () => {
                                             } else if (typeof value === 'boolean') {
                                                 content = value ? 'Yes' : 'No';
                                             } else {
-                                                content = String(value ?? '');
+                                                content = <span className="truncate block">{String(value ?? '')}</span>;
                                             }
                                         }
                                         
@@ -1314,7 +1383,7 @@ const TableDetailPage: React.FC = () => {
                         const imageUrl = firstVisibleImageCol ? row.data[firstVisibleImageCol.name] : null;
 
                         return (
-                            <div key={row.id} className="bg-secondary rounded-lg border border-slate-300 dark:border-slate-700 shadow-sm relative group flex flex-col">
+                            <div key={row.id} className="bg-secondary rounded-lg border border-slate-300 dark:border-slate-700 shadow-sm relative group flex flex-col cursor-pointer" onClick={() => setSelectedWordForCard(row as VocabRow)}>
                                 {imageUrl && (
                                     <img src={imageUrl} alt={row.keyword} className="w-full h-32 object-cover rounded-t-lg" onError={(e) => e.currentTarget.style.display = 'none'} />
                                 )}
@@ -1329,7 +1398,7 @@ const TableDetailPage: React.FC = () => {
                                         type="checkbox"
                                         className="h-4 w-4 rounded accent-accent bg-primary border-slate-400 dark:border-slate-500"
                                         checked={selectedRowIds.has(row.id)}
-                                        onChange={() => handleSelectRow(row.id)}
+                                        onChange={(e) => { e.stopPropagation(); handleSelectRow(row.id); }}
                                         aria-label={`Select ${row.keyword}`}
                                     />
                                 </div>

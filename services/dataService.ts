@@ -683,6 +683,62 @@ export const dataService = {
     persistState();
   },
 
+  renameTable: async (tableId: string, newName: string): Promise<VocabTable> => {
+    await new Promise(res => setTimeout(res, 200));
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+      throw new Error("Table name cannot be empty.");
+    }
+
+    const nameExists = mockTables.some(t => t.id !== tableId && t.name.toLowerCase() === trimmedName.toLowerCase());
+    if (nameExists) {
+      throw new Error(`A table named "${trimmedName}" already exists.`);
+    }
+
+    let updatedTable: VocabTable | null = null;
+    mockTables = mockTables.map(table => {
+      if (table.id === tableId) {
+        updatedTable = { ...table, name: trimmedName };
+        return updatedTable;
+      }
+      return table;
+    });
+
+    if (!updatedTable) {
+      throw new Error(`Table with id ${tableId} not found.`);
+    }
+    
+    mockStudySessions = mockStudySessions.map(session => {
+        const tableIndex = session.tableIds.indexOf(tableId);
+        if (tableIndex > -1) {
+            const newTableNames = [...session.tableNames];
+            newTableNames[tableIndex] = trimmedName;
+            return { ...session, tableNames: newTableNames };
+        }
+        return session;
+    });
+
+    persistState();
+    return updatedTable;
+  },
+
+  deleteTable: async (tableId: string): Promise<void> => {
+    await new Promise(res => setTimeout(res, 200));
+    
+    const initialTableCount = mockTables.length;
+    mockTables = mockTables.filter(table => table.id !== tableId);
+    if (mockTables.length === initialTableCount) {
+        console.warn(`Attempted to delete table with id ${tableId}, but it was not found.`);
+        return;
+    }
+
+    mockRelations = mockRelations.filter(relation => relation.tableId !== tableId);
+    
+    mockStudyPresets = mockStudyPresets.filter(preset => !preset.tableIds.includes(tableId));
+
+    persistState();
+  },
+
   createTable: async (name: string, columns: ColumnDef[]): Promise<VocabTable> => {
     await new Promise(res => setTimeout(res, 200));
     const newTable: VocabTable = {

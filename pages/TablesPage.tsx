@@ -1,10 +1,52 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useData } from '../hooks/useData';
 import { Link, useNavigate } from 'react-router-dom';
 import CreateTableModal from '../components/CreateTableModal';
 import { dataService } from '../services/dataService';
 import { ColumnDef, VocabTable } from '../types';
-import { XIcon, SearchIcon, ImportIcon } from '../components/Icons';
+import { XIcon, SearchIcon, ImportIcon, MoreVerticalIcon, EditIcon, TrashIcon } from '../components/Icons';
+
+const TableActionsMenu: React.FC<{
+    table: VocabTable;
+    onRename: (table: VocabTable) => void;
+    onDelete: (table: VocabTable) => void;
+}> = ({ table, onRename, onDelete }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (ref.current && !ref.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [ref]);
+
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); setIsOpen(p => !p); }}
+                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                aria-label={`Actions for ${table.name}`}
+            >
+                <MoreVerticalIcon className="w-5 h-5" />
+            </button>
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg z-10 text-sm">
+                    <button onClick={(e) => { e.stopPropagation(); onRename(table); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <EditIcon className="w-4 h-4" /> Rename
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(table); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-red-500 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <TrashIcon className="w-4 h-4" /> Delete
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const TablesPage: React.FC = () => {
     const { tables, relations, loading, fetchData } = useData();
@@ -16,6 +58,35 @@ const TablesPage: React.FC = () => {
     const filteredTables = tables.filter(table =>
         table.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const handleRenameTable = async (table: VocabTable) => {
+        const newName = prompt(`Enter new name for "${table.name}":`, table.name);
+        if (newName && newName.trim() && newName.trim() !== table.name) {
+            try {
+                await dataService.renameTable(table.id, newName.trim());
+                await fetchData();
+            } catch (error) {
+                console.error("Failed to rename table:", error);
+                if (error instanceof Error) {
+                    alert(`Error renaming table: ${error.message}`);
+                } else {
+                    alert("An unknown error occurred while renaming the table.");
+                }
+            }
+        }
+    };
+
+    const handleDeleteTable = async (table: VocabTable) => {
+        if (window.confirm(`Are you sure you want to delete the table "${table.name}"? This action cannot be undone and will also delete all associated relations and words.`)) {
+            try {
+                await dataService.deleteTable(table.id);
+                await fetchData();
+            } catch (error) {
+                console.error("Failed to delete table:", error);
+                alert("An error occurred while deleting the table.");
+            }
+        }
+    };
 
     const handleCreateTable = async (name: string, columns: ColumnDef[]) => {
         try {
@@ -100,12 +171,19 @@ const TablesPage: React.FC = () => {
                         filteredTables.map(table => {
                             const relationCount = relations.filter(r => r.tableId === table.id).length;
                             return (
-                                <Link to={`/tables/${table.id}`} key={table.id}>
-                                    <div className="bg-secondary dark:bg-slate-800 p-4 rounded-lg shadow-md hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                                <div key={table.id} className="bg-secondary dark:bg-slate-800 rounded-lg shadow-md hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center justify-between">
+                                    <Link to={`/tables/${table.id}`} className="flex-grow p-4">
                                         <h2 className="text-xl font-bold text-accent dark:text-sky-400">{table.name} ({relationCount})</h2>
                                         <p className="text-text-secondary dark:text-slate-400">{table.rows.length} words</p>
+                                    </Link>
+                                    <div className="p-2">
+                                        <TableActionsMenu
+                                            table={table}
+                                            onRename={handleRenameTable}
+                                            onDelete={handleDeleteTable}
+                                        />
                                     </div>
-                                </Link>
+                                </div>
                             )
                         })
                     ) : (
