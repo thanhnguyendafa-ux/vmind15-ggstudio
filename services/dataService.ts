@@ -582,8 +582,14 @@ export const dataService = {
         const currentStats = { ...row.stats };
 
         if (progress.status === 'pass2') {
-            currentStats.Passed1 += 1;
-            currentStats.Passed2 += 1;
+            // A completed word in a session always has one pass that graduates it to "pass2" status.
+            // Any other correct answers in the session contributed to reaching or re-reaching "pass1".
+            // This ensures the TotalAttempt calculation remains accurate.
+            const passesForStage2 = 1;
+            const passesForStage1 = progress.newPasses > 0 ? progress.newPasses - 1 : 0;
+            
+            currentStats.Passed1 += passesForStage1;
+            currentStats.Passed2 += passesForStage2;
             currentStats.InQueue += 1;
             currentStats.QuitQueue = false;
         }
