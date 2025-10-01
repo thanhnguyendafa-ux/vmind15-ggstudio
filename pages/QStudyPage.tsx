@@ -35,25 +35,25 @@ const FullExplanationModal: React.FC<{
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 v-modal-container">
         <div className="bg-secondary dark:bg-slate-800 p-6 rounded-xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col v-modal-content">
             <h3 className="text-xl font-bold text-danger mb-4">Full Explanation for: <span className="text-text-primary dark:text-slate-200">{word.keyword}</span></h3>
-            <div className="overflow-y-auto space-y-2 bg-primary dark:bg-slate-900/50 p-3 rounded-lg">
-                <div className="flex justify-between">
-                    <span className="font-bold text-text-secondary">Keyword:</span>
-                    <span className="text-text-primary dark:text-slate-200">{word.keyword}</span>
+            <div className="overflow-y-auto space-y-4 bg-primary dark:bg-slate-900/50 p-3 rounded-lg">
+                <div>
+                    <p className="text-sm font-bold text-text-secondary">Keyword</p>
+                    <p className="text-text-primary mt-1 break-words">{word.keyword}</p>
                 </div>
                 {table.columns.map(col => (
-                    <div key={col.name} className="flex justify-between">
-                        <span className="font-bold text-text-secondary">{col.name}:</span>
-                        <span className="text-text-primary dark:text-slate-200 text-right">{word.data[col.name] || '-'}</span>
+                    <div key={col.name}>
+                        <p className="text-sm font-bold text-text-secondary">{col.name}</p>
+                        <p className="text-text-primary mt-1 break-words">{word.data[col.name] || '—'}</p>
                     </div>
                 ))}
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
-                    <div className="flex justify-between">
-                        <span className="font-bold text-text-secondary">Rank Point:</span>
-                        <span className="text-text-primary dark:text-slate-200">{word.stats.RankPoint}</span>
+                <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div>
+                        <p className="text-sm font-bold text-text-secondary">Rank Point</p>
+                        <p className="text-text-primary mt-1 break-words">{word.stats.RankPoint}</p>
                     </div>
-                    <div className="flex justify-between">
-                        <span className="font-bold text-text-secondary">Success Rate:</span>
-                        <span className="text-text-primary dark:text-slate-200">{(word.stats.SuccessRate * 100).toFixed(0)}%</span>
+                    <div>
+                        <p className="text-sm font-bold text-text-secondary">Success Rate</p>
+                        <p className="text-text-primary mt-1 break-words">{(word.stats.SuccessRate * 100).toFixed(0)}%</p>
                     </div>
                 </div>
             </div>
@@ -322,17 +322,17 @@ const QStudyPage: React.FC = () => {
             if (isSpeedModeOn) {
                 advanceQueue(isCorrect);
             } else {
-                if (isCorrect) {
-                    advanceQueue(true);
-                } else {
-                    setShowFullExplanation(true);
-                }
+                // When speed mode is off, always show the full explanation card,
+                // regardless of whether the answer was right or wrong.
+                // This creates a consistent "Review Mode".
+                setShowFullExplanation(true);
             }
         }, 1500);
     };
     
     const handleExplanationContinue = () => {
-        advanceQueue(false);
+        // Advance the queue based on the actual answer correctness, which is stored in state.
+        advanceQueue(lastAnswerCorrect ?? false);
     };
 
     const checkTypingAnswer = () => {

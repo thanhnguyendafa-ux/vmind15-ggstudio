@@ -483,7 +483,7 @@ const WordCardModal: React.FC<{
                      <button onClick={onClose} className="p-1 rounded-full hover:bg-primary dark:hover:bg-slate-600"><XIcon className="w-5 h-5"/></button>
                 </div>
                 
-                <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-2">
+                <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2">
                     {[...visibleUserCols, ...visibleStatCols]
                         .map(col => {
                             const value = getRowValue(word, col, userColumns);
@@ -503,16 +503,16 @@ const WordCardModal: React.FC<{
                             if (colDef?.type === 'image' && value) {
                                 return (
                                     <div key={col}>
-                                        <p className="font-semibold text-text-secondary">{col}:</p>
+                                        <p className="text-sm font-bold text-text-secondary">{col}</p>
                                         <img src={value} alt={word.keyword} className="mt-1 max-w-full h-auto rounded-md" onError={(e) => { e.currentTarget.style.display = 'none'; }}/>
                                     </div>
                                 )
                             }
 
                             return (
-                                <div key={col} className="flex justify-between items-start gap-2">
-                                    <span className="font-semibold text-text-secondary mr-2 shrink-0">{col}:</span>
-                                    <span className="text-text-primary text-right break-words">{String(displayValue ?? '—')}</span>
+                                <div key={col}>
+                                    <p className="text-sm font-bold text-text-secondary">{col}</p>
+                                    <p className="text-text-primary mt-1 break-words">{String(displayValue ?? '—')}</p>
                                 </div>
                             );
                     })}
