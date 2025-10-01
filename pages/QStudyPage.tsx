@@ -370,15 +370,20 @@ const QStudyPage: React.FC = () => {
 
         const totalChange = finalXpWithBonus - initialXp.current;
 
-        const reportData = config.words.map(word => {
-            const progress = wordProgress[word.id];
-            return {
-                word: word,
-                failedChange: progress.newFails,
-                passed1Change: 1,
-                passed2Change: 1,
-            };
-        });
+        const reportData = config.words
+            .filter(word => wordProgress[word.id]?.status === 'pass2')
+            .map(word => {
+                const progress = wordProgress[word.id];
+                const passesForStage2 = 1;
+                const passesForStage1 = progress.newPasses > 0 ? progress.newPasses - 1 : 0;
+
+                return {
+                    word: word,
+                    failedChange: progress.newFails,
+                    passed1Change: passesForStage1,
+                    passed2Change: passesForStage2,
+                };
+            });
         setSessionReport(reportData);
 
         await dataService.updateStatsOnCompletion(config, wordProgress, totalChange);
@@ -437,8 +442,8 @@ const QStudyPage: React.FC = () => {
                                <p className="font-bold text-text-primary dark:text-slate-200">{item.word.keyword}</p>
                                <div className="flex justify-start space-x-4 pl-2 text-text-secondary">
                                    {item.failedChange > 0 && <span className="text-danger">Failed: +{item.failedChange}</span>}
-                                   <span className="text-green-400">Passed1: +{item.passed1Change}</span>
-                                   <span className="text-green-400">Passed2: +{item.passed2Change}</span>
+                                   {item.passed1Change > 0 && <span className="text-green-400">Passed1: +{item.passed1Change}</span>}
+                                   {item.passed2Change > 0 && <span className="text-green-400">Passed2: +{item.passed2Change}</span>}
                                </div>
                            </div>
                        ))}
