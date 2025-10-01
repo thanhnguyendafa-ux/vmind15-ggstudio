@@ -196,12 +196,21 @@ const SettingsPage: React.FC = () => {
         }
     };
     
-    const handleSync = () => {
+    const handleSync = async () => {
+        if (!session) {
+            alert("You must be logged in to sync.");
+            return;
+        }
         setIsSyncing(true);
-        setTimeout(() => {
+        try {
+            await fetchData();
+            alert("Data synced successfully!");
+        } catch (error) {
+            console.error("Sync failed:", error);
+            alert("There was an error syncing your data. Please check the console for details.");
+        } finally {
             setIsSyncing(false);
-            alert("Data synced successfully! (This is a placeholder)");
-        }, 1500);
+        }
     };
     
     const conflictPolicyOptions: { value: ConflictResolutionPolicy, label: string }[] = [

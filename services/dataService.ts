@@ -523,23 +523,170 @@ export const dataService = {
   },
 
   updateStatsOnCompletion: async function(config: StudyConfig, sessionProgress: Record<string, WordProgress>, xpChange: number): Promise<void> {
-    if (!supabase) {
-      // ... existing local logic ...
-      persistState();
-      return;
-    }
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      // ... Supabase logic ...
+    const sessionHandler = async (user: User | null) => {
+        // Supabase Logic
+        if (user && supabase) {
+            const wordIds = Object.keys(sessionProgress);
+            if (wordIds.length === 0) return;
+
+            const { data: currentRows, error: fetchError } = await supabase.from('rows').select('id, stats').in('id', wordIds);
+            if (fetchError) throw fetchError;
+
+            const rowsToUpdate = currentRows.map(row => {
+                const progress = sessionProgress[row.id];
+                if (!progress) return null;
+                const oldStats: VocabRowStats = row.stats;
+                const newStatsPartial: Partial<VocabRowStats> = {
+                    ...oldStats,
+                    Passed1: oldStats.Passed1 + (progress.newPasses > 1 ? progress.newPasses - 1 : 0),
+                    Passed2: oldStats.Passed2 + 1,
+                    Failed: oldStats.Failed + progress.newFails,
+                };
+                const recalculated = recalculateStats(newStatsPartial);
+                recalculated.InQueue = (oldStats.InQueue || 0) + 1;
+                recalculated.LastPracticeDate = new Date().toISOString();
+                recalculated.QuitQueue = false;
+                return { id: row.id, stats: recalculated, user_id: user.id };
+            }).filter(Boolean);
+
+            if (rowsToUpdate.length > 0) {
+              const { error: upsertError } = await supabase.from('rows').upsert(rowsToUpdate);
+              if (upsertError) throw upsertError;
+            }
+
+            const { data: profile, error: profileError } = await supabase.from('profiles').select('global_stats').single();
+            if (profileError && profileError.code !== 'PGRST116') throw profileError;
+
+            const currentStats = profile?.global_stats || { xp: 0, inQueueReal: 0, quitQueueReal: 0 };
+            const updatedStats = { ...currentStats, xp: currentStats.xp + xpChange, inQueueReal: (currentStats.inQueueReal || 0) + 1 };
+            await supabase.from('profiles').upsert({ id: user.id, global_stats: updatedStats });
+
+            const tableData = await supabase.from('tables').select('name').in('id', config.tableIds);
+            const tableNames = tableData.data?.map(t => t.name) || [];
+
+            const newSession = {
+                id: crypto.randomUUID(), created_at: new Date().toISOString(), status: 'completed', table_ids: config.tableIds,
+                table_names: tableNames, modes: config.modes, word_count: config.words.length, user_id: user.id
+            };
+            const newRewardEvent = {
+                id: crypto.randomUUID(), timestamp: new Date().toISOString(), type: 'session_complete',
+                description: `Completed a session with ${config.words.length} words.`, xp_change: xpChange, user_id: user.id
+            };
+
+            await Promise.all([
+                supabase.from('study_sessions').insert(newSession),
+                supabase.from('reward_events').insert(newRewardEvent)
+            ]);
+        } 
+        // Local Logic
+        else {
+            Object.keys(sessionProgress).forEach(wordId => {
+                const table = mockTables.find(t => t.rows.some(r => r.id === wordId));
+                if (!table) return;
+                const word = table.rows.find(r => r.id === wordId);
+                if (!word) return;
+                const progress = sessionProgress[wordId];
+                const newStatsPartial: Partial<VocabRowStats> = {
+                    ...word.stats,
+                    Passed1: word.stats.Passed1 + (progress.newPasses > 1 ? progress.newPasses - 1 : 0),
+                    Passed2: word.stats.Passed2 + 1,
+                    Failed: word.stats.Failed + progress.newFails,
+                };
+                word.stats = recalculateStats(newStatsPartial);
+                word.stats.InQueue += 1;
+                word.stats.LastPracticeDate = new Date().toISOString();
+                word.stats.QuitQueue = false;
+            });
+            mockGlobalStats.xp += xpChange;
+            mockGlobalStats.inQueueReal += 1;
+            mockStudySessions.unshift({
+                id: crypto.randomUUID(), createdAt: new Date().toISOString(), status: 'completed', tableIds: config.tableIds,
+                tableNames: mockTables.filter(t => config.tableIds.includes(t.id)).map(t => t.name), modes: config.modes, wordCount: config.words.length
+            });
+            mockRewardEvents.unshift({
+                id: crypto.randomUUID(), timestamp: new Date().toISOString(), type: 'session_complete',
+                description: `Completed a session with ${config.words.length} words.`, xpChange: xpChange
+            });
+            persistState();
+        }
+    };
+    
+    if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        await sessionHandler(session?.user ?? null);
     } else {
-      // ... existing local logic ...
-      persistState();
+        await sessionHandler(null);
     }
   },
 
   updateStatsOnQuit: async function(config: StudyConfig, wordProgress: Record<string, WordProgress>, xpChange: number): Promise<void> {
-    // ... logic for both local and Supabase ...
-    persistState(); // for local
+    const sessionHandler = async (user: User | null) => {
+        const quitWordIds = config.words.filter(w => wordProgress[w.id]?.status !== 'pass2').map(w => w.id);
+        
+        // Supabase Logic
+        if (user && supabase) {
+            if (quitWordIds.length > 0) {
+                const { data: rowsToUpdate, error: fetchError } = await supabase.from('rows').select('id, stats').in('id', quitWordIds);
+                if (fetchError) throw fetchError;
+
+                const updatedRows = rowsToUpdate.map(row => ({ id: row.id, stats: { ...row.stats, QuitQueue: true }, user_id: user.id }));
+                if (updatedRows.length > 0) {
+                  const { error: upsertError } = await supabase.from('rows').upsert(updatedRows);
+                  if (upsertError) throw upsertError;
+                }
+            }
+
+            const { data: profile, error: profileError } = await supabase.from('profiles').select('global_stats').single();
+            if (profileError && profileError.code !== 'PGRST116') throw profileError;
+
+            const currentStats = profile?.global_stats || { xp: 0, inQueueReal: 0, quitQueueReal: 0 };
+            const updatedStats = { ...currentStats, xp: currentStats.xp + xpChange, quitQueueReal: (currentStats.quitQueueReal || 0) + 1 };
+            await supabase.from('profiles').upsert({ id: user.id, global_stats: updatedStats });
+
+            const tableData = await supabase.from('tables').select('name').in('id', config.tableIds);
+            const tableNames = tableData.data?.map(t => t.name) || [];
+
+            const newSession = {
+                id: crypto.randomUUID(), created_at: new Date().toISOString(), status: 'quit', table_ids: config.tableIds,
+                table_names: tableNames, modes: config.modes, word_count: config.words.length, user_id: user.id
+            };
+            const newRewardEvent = {
+                id: crypto.randomUUID(), timestamp: new Date().toISOString(), type: 'session_quit',
+                description: `Quit a session with ${config.words.length} words.`, xp_change: xpChange, user_id: user.id
+            };
+            await Promise.all([
+                supabase.from('study_sessions').insert(newSession),
+                supabase.from('reward_events').insert(newRewardEvent)
+            ]);
+        }
+        // Local Logic
+        else {
+            quitWordIds.forEach(wordId => {
+                const table = mockTables.find(t => t.rows.some(r => r.id === wordId));
+                const row = table?.rows.find(r => r.id === wordId);
+                if (row) row.stats.QuitQueue = true;
+            });
+
+            mockGlobalStats.xp += xpChange;
+            mockGlobalStats.quitQueueReal += 1;
+            mockStudySessions.unshift({
+                id: crypto.randomUUID(), createdAt: new Date().toISOString(), status: 'quit', tableIds: config.tableIds,
+                tableNames: mockTables.filter(t => config.tableIds.includes(t.id)).map(t => t.name), modes: config.modes, wordCount: config.words.length
+            });
+            mockRewardEvents.unshift({
+                id: crypto.randomUUID(), timestamp: new Date().toISOString(), type: 'session_quit',
+                description: `Quit a session with ${config.words.length} words.`, xpChange: xpChange
+            });
+            persistState();
+        }
+    };
+    
+    if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        await sessionHandler(session?.user ?? null);
+    } else {
+        await sessionHandler(null);
+    }
   },
 
   deleteWord: async (tableId: string, wordId: string): Promise<void> => {

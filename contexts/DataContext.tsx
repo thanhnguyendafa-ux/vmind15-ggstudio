@@ -138,12 +138,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setSession(currentSession);
       
       if (_event === 'SIGNED_IN') {
+        setLoading(true);
         clearLocalState();
         await handleFirstTimeSync(session!.user);
         await fetchData();
       }
       
       if (_event === 'SIGNED_OUT') {
+        setLoading(true);
         clearLocalState();
         dataService.initializeLocalData();
         await fetchData();
