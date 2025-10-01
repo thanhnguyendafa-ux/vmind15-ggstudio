@@ -1,8 +1,8 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { VocabTable, GlobalStats, Relation, RewardEvent, VmindSettings, StudySession, BackupRecord, Theme, Session, StudyPreset } from '../types';
 import { dataService } from '../services/dataService';
 import { supabase } from '../services/supabaseClient';
-import type { User } from '@supabase/supabase-js';
 
 interface DataContextType {
   tables: VocabTable[];
@@ -39,9 +39,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [isSampleDataActive, setIsSampleDataActive] = useState<boolean>(false);
+
+  const [isSampleDataActive, setIsSampleDataActive] = useState<boolean>(() => {
+    try {
+        return JSON.parse(localStorage.getItem('vmind-sample-mode') || 'false');
+    } catch {
+        return false;
+    }
+  });
+
 
   useEffect(() => {
+    // Theme management
     if (settings) {
         const root = window.document.documentElement;
         if (settings.theme === 'dark') {
@@ -52,20 +61,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [settings?.theme]);
 
-  const clearLocalState = () => {
-    setTables([]);
-    setGlobalStats(null);
-    setRelations([]);
-    setRewardEvents([]);
-    setStudySessions([]);
-    setStudyPresets([]);
-    setSettings(null);
-    setBackupHistory([]);
-  };
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // For now, we still fetch mock data.
+      // In a real implementation, this would check if the user is logged in
+      // and fetch data from Supabase instead.
       const tablesData = await dataService.getTables();
       const [statsData, relationsData, eventsData, settingsData, sessionsData, backupData, presetsData] = await Promise.all([
         dataService.getGlobalStats(),
@@ -86,92 +87,65 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setStudyPresets(presetsData);
     } catch (error) {
       console.error("Failed to fetch data", error);
-      clearLocalState();
     } finally {
       setLoading(false);
     }
   }, []);
   
+  // Supabase Auth
   useEffect(() => {
-    if (!supabase) {
-        dataService.initializeLocalData();
-        fetchData();
-        setIsInitialized(true);
-        return;
-    };
-
-    const handleFirstTimeSync = async (user: User) => {
-        if (dataService.hasLocalData()) {
-            const { count, error } = await supabase.from('tables').select('*', { count: 'exact', head: true });
-            if (error) {
-                console.error("Error checking for user data:", error);
-                return;
-            }
-
-            if (count === 0) {
-                 if (window.confirm("Welcome! You have local data on this device. Would you like to upload it to your new account? This will clear the data from this device.")) {
-                    try {
-                        setLoading(true);
-                        await dataService.syncLocalToSupabase(user);
-                        alert("Sync successful! Your local data is now in your account.");
-                    } catch (syncError) {
-                        console.error("Sync failed:", syncError);
-                        alert("There was an error syncing your data. Please try again later.");
-                    } finally {
-                        setLoading(false);
-                    }
-                }
-            }
-        }
-    };
+    if (!supabase) return;
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (!session) {
-        dataService.initializeLocalData();
-      }
-      fetchData().then(() => setIsInitialized(true));
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentSession = (await supabase.auth.getSession()).data.session;
-      setSession(currentSession);
-      
-      if (_event === 'SIGNED_IN') {
-        setLoading(true);
-        clearLocalState();
-        await handleFirstTimeSync(session!.user);
-        await fetchData();
-      }
-      
-      if (_event === 'SIGNED_OUT') {
-        setLoading(true);
-        clearLocalState();
-        dataService.initializeLocalData();
-        await fetchData();
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchData]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
-    if (!supabase) throw new Error("Supabase is not configured.");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (!supabase) {
+        alert("Supabase is not configured. Cannot log in.");
+        return;
+    }
+    const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
+    if (error) {
+        console.error('Error logging in:', error);
+        throw error;
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    if (!supabase) throw new Error("Supabase is not configured.");
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
+    if (!supabase) {
+        alert("Supabase is not configured. Cannot sign up.");
+        return;
+    }
+    const { error } = await supabase.auth.signUp({
+        email,
+        password,
+    });
+    if (error) {
+        console.error('Error signing up:', error);
+        throw error;
+    }
   };
+
 
   const signOut = async () => {
     if (!supabase) return;
     const { error } = await supabase.auth.signOut();
-    if (error) console.error('Error logging out:', error);
+    if (error) {
+        console.error('Error logging out:', error);
+    }
   };
+
 
   const updateSettings = useCallback(async (newSettings: Partial<VmindSettings>) => {
     const result = await dataService.updateSettings(newSettings);
@@ -186,7 +160,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [settings, updateSettings]);
 
   const toggleSampleData = useCallback(async (active: boolean) => {
-    alert("Sample data mode is disabled when Supabase is connected.");
+    setIsSampleDataActive(active);
+    localStorage.setItem('vmind-sample-mode', JSON.stringify(active));
+    await dataService.setSampleMode(active);
+    await fetchData();
+  }, [fetchData]);
+
+
+  useEffect(() => {
+    const initializeApp = async () => {
+        await dataService.setSampleMode(isSampleDataActive);
+        await fetchData();
+        setIsInitialized(true);
+    };
+    initializeApp();
   }, []);
 
 
